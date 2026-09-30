@@ -1,5 +1,6 @@
 import { TOURNAMENTS } from '../tournaments.js';
-import { DIFFICULTY, TOPICS } from '../data/range-config.js';
+import { DIFFICULTY, TOPICS, TIMED_ROUND } from '../data/range-config.js';
+import * as progress from '../progress.js';
 import * as range from '../range.js';
 import { $, esc, BRAND_SVG, scoreMark } from '../ui/dom.js';
 
@@ -134,6 +135,127 @@ function syncUrl() {
   history.replaceState(null, '', range.rangeUrls.home(filters) + location.hash);
 }
 
+// ---------- Modes: Mixed Bag, Timed Round, Drill my rough spots ----------
+
+const clock = (ms) => {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+function notice(html, kind = 'info') {
+  $('#mode-notice').innerHTML = `<div class="feedback ${kind} mode-notice">${html}</div>`;
+  $('#mode-notice').scrollIntoView({ block: 'nearest' });
+}
+
+const firstOpen = (round) => round.problems.find((p) => !p.solved) ?? round.problems[0];
+
+function renderModes() {
+  const round = range.activeRound();
+  $('#modes').innerHTML = `
+    <button class="btn btn-flag" type="button" id="mode-mixed" title="A random unsolved problem from everything unlocked">🎲 Mixed Bag</button>
+    <button class="btn btn-ghost" type="button" id="mode-timed">${round
+      ? `⏱️ Resume Timed Round (<span data-countdown>${clock(new Date(round.endsAt) - Date.now())}</span> left)`
+      : `⏱️ Timed Round · ${TIMED_ROUND.problems} problems, ${TIMED_ROUND.minutes} min`}</button>
+    <button class="btn btn-ghost" type="button" id="mode-drill" title="Unsolved or needs-review problems from your weakest topics">🎯 Drill my rough spots</button>`;
+
+  $('#mode-mixed').addEventListener('click', () => {
+    const p = range.mixedBag(range.annotate(problems));
+    if (p) location.href = range.rangeUrls.problem(p.key);
+    else notice('<strong>Nothing in the bag.</strong><p>Every unlocked problem is solved. Try Drill, or unlock more by finishing a tournament.</p>');
+  });
+
+  $('#mode-timed').addEventListener('click', () => {
+    const active = range.activeRound();
+    if (active) {
+      location.href = range.rangeUrls.problem(firstOpen(active).key);
+      return;
+    }
+    const picks = range.timedRoundPicks(range.annotate(problems));
+    if (picks.length < TIMED_ROUND.problems) {
+      notice(`<strong>Not enough problems unlocked.</strong><p>A Timed Round needs ${TIMED_ROUND.problems} unlocked problems.
+        Finish a tournament to unlock its range problems.</p>`);
+      return;
+    }
+    const started = range.startTimedRound(picks);
+    location.href = range.rangeUrls.problem(started.problems[0].key);
+  });
+
+  $('#mode-drill').addEventListener('click', () => {
+    const { problem, topics } = range.drill(range.annotate(problems));
+    if (problem) location.href = range.rangeUrls.problem(problem.key);
+    else if (topics.length === 0) notice('<strong>No rough spots yet.</strong><p>Play a few range problems first. Missed shots and caddie tips show where to drill.</p>');
+    else notice(`<strong>Nothing left to drill.</strong><p>Every unlocked problem in ${topics.map(esc).join(', ')} is solved and not due for review. Nice work.</p>`);
+  });
+}
+
+function renderRoundPanel() {
+  const panel = $('#round-panel');
+  const round = range.activeRound();
+  if (round) {
+    panel.innerHTML = `
+      <section class="round-card" id="timed-round" aria-labelledby="round-title">
+        <div class="round-head">
+          <h2 id="round-title">⏱️ Timed Round in progress</h2>
+          <span class="round-clock" data-countdown>${clock(new Date(round.endsAt) - Date.now())}</span>
+        </div>
+        ${roundTable(round, true)}
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="${range.rangeUrls.problem(firstOpen(round).key)}">Continue the round</a>
+          <button class="btn" type="button" id="end-round">End round now</button>
+        </div>
+      </section>`;
+    $('#end-round').addEventListener('click', () => {
+      range.finishTimedRound(new Date(), 'quit');
+      renderModes();
+      renderRoundPanel();
+    });
+    return;
+  }
+  const last = range.lastRound();
+  if (!last) { panel.innerHTML = ''; return; }
+  const totals = range.roundTotals(last);
+  const reason = { complete: 'All holed out', time: "Time's up", quit: 'Ended early' }[last.reason] ?? '';
+  panel.innerHTML = `
+    <section class="round-card${new URLSearchParams(location.search).get('round') === 'last' ? ' is-fresh' : ''}" id="timed-round" aria-labelledby="round-title">
+      <div class="round-head">
+        <h2 id="round-title">Last Timed Round: scorecard</h2>
+        <span class="round-meta">${reason} · ${clock(last.elapsedMs)} · ${new Date(last.finishedAt).toLocaleDateString()}</span>
+      </div>
+      ${roundTable(last, false)}
+      <p class="round-total"><strong>${totals.strokes}</strong> strokes on a par ${totals.par}
+        (<strong>${progress.formatToPar(totals.toPar)}</strong>) · ${totals.solved} of ${totals.total} holed.
+        Unsolved problems score par + ${TIMED_ROUND.unsolvedOverPar}.</p>
+    </section>`;
+}
+
+function roundTable(round, live) {
+  return `
+    <div class="table-scroll round-table-wrap">
+      <table class="data-table round-table">
+        <thead><tr><th scope="col">Problem</th><th scope="col">Par</th><th scope="col">Strokes</th><th scope="col">Result</th></tr></thead>
+        <tbody>${round.problems.map((p) => `
+          <tr>
+            <td><a href="${range.rangeUrls.problem(p.key)}">${esc(p.title)}</a></td>
+            <td>${p.par}</td>
+            <td>${p.solved ? scoreMark(p.strokes, p.par) : live ? p.strokes : `<span class="null">${p.par + TIMED_ROUND.unsolvedOverPar}</span>`}</td>
+            <td>${p.solved ? esc(progress.scoreName(p.strokes, p.par)) : live ? 'In play' : 'Not holed'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// Keep countdowns live; when the round's time runs out, redraw to show its scorecard.
+setInterval(() => {
+  const round = range.activeRound();
+  const counters = document.querySelectorAll('[data-countdown]');
+  if (!round) {
+    if (counters.length) { renderModes(); renderRoundPanel(); }
+    return;
+  }
+  counters.forEach((el) => { el.textContent = clock(new Date(round.endsAt) - Date.now()); });
+}, 1000);
+
 function render() {
   const now = new Date();
   const annotated = range.annotate(problems, { now });
@@ -182,6 +304,9 @@ function render() {
   form.addEventListener('input', (e) => { if (e.target.name === 'q') update(); });
   form.addEventListener('submit', (e) => { e.preventDefault(); update(); });
   renderList();
+  renderModes();
+  renderRoundPanel();
+  if (location.hash === '#timed-round') $('#timed-round')?.scrollIntoView();
 }
 
 document.title = 'The Driving Range · Puttedex';

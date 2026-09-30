@@ -109,8 +109,72 @@ async function start() {
     }
   }
 
-  // Filled in by the timed-round integration (step 4); a no-op otherwise.
-  let roundStroke = () => {};
+  // ---------- Timed round ----------
+
+  const clock = (ms) => {
+    const s = Math.max(0, Math.round(ms / 1000));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  };
+  let roundWasActive = false;
+
+  function renderRoundBanner() {
+    const host = $('#round-banner');
+    const round = range.activeRound();
+    if (!round) {
+      // The round ended while this page was open (time ran out, or this solve finished it).
+      host.innerHTML = roundWasActive
+        ? `<div class="round-banner"><div class="round-banner-inner">
+             <strong>⏱️ Timed round over.</strong>
+             <span class="spacer"></span>
+             <a class="btn btn-small" href="${range.rangeUrls.roundCard()}">See your scorecard →</a>
+           </div></div>`
+        : '';
+      return;
+    }
+    roundWasActive = true;
+    const inRound = round.problems.some((p) => p.key === key);
+    host.innerHTML = `
+      <div class="round-banner"><div class="round-banner-inner" role="region" aria-label="Timed round">
+        <strong>⏱️ Timed round</strong>
+        <span class="round-clock" data-countdown>${clock(new Date(round.endsAt) - Date.now())}</span>
+        <ol class="round-steps">${round.problems.map((p, i) => {
+          const label = `${p.solved ? '✓ ' : ''}${i + 1}. ${esc(p.title)}`;
+          return `<li>${p.key === key
+            ? `<span aria-current="step" class="${p.solved ? 'done' : ''}">${label}</span>`
+            : `<a class="${p.solved ? 'done' : ''}" href="${range.rangeUrls.problem(p.key)}">${label}</a>`}</li>`;
+        }).join('')}</ol>
+        ${inRound ? '' : '<span>This problem isn\'t part of the round, so it won\'t count toward it.</span>'}
+        <span class="spacer"></span>
+        <button class="btn btn-small" type="button" id="end-round">End round</button>
+      </div></div>`;
+    $('#end-round').addEventListener('click', () => {
+      range.finishTimedRound(new Date(), 'quit');
+      location.href = range.rangeUrls.roundCard();
+    });
+  }
+
+  /** In an active round that includes this problem, the next unsolved round problem. */
+  function roundNext() {
+    const round = range.activeRound();
+    if (!round?.problems.some((p) => p.key === key)) return null;
+    return round.problems.find((p) => !p.solved && p.key !== key) ?? null;
+  }
+
+  /** Count a stroke toward the active round (if this problem is in it). Returns true if that finished the round. */
+  function roundStroke({ solved = false } = {}) {
+    const before = range.activeRound();
+    if (!before?.problems.some((p) => p.key === key)) return false;
+    range.recordRoundStroke(key, { solved });
+    const finished = !range.activeRound();
+    renderRoundBanner();
+    return finished;
+  }
+
+  setInterval(() => {
+    const round = range.activeRound();
+    if (!round) { if (roundWasActive && !$('#round-banner a[href*="round=last"]')) renderRoundBanner(); return; }
+    document.querySelectorAll('[data-countdown]').forEach((el) => { el.textContent = clock(new Date(round.endsAt) - Date.now()); });
+  }, 1000);
 
   function render() {
     const back = range.rangeUrls.home(filters);
@@ -147,6 +211,7 @@ async function start() {
         </div>
       </div>`;
 
+    renderRoundBanner();
     mountEditor();
     renderHint();
     renderSolution();
@@ -190,7 +255,7 @@ async function start() {
       : compareResults(result, expected, { orderMatters: problem.orderMatters });
     const wasUnlocked = range.solutionUnlocked(rec());
     const { rec: r, flagged } = range.recordSubmit(problem, verdict.ok, code);
-    roundStroke({ solved: verdict.ok });
+    const roundDone = roundStroke({ solved: verdict.ok });
     renderStrokes();
 
     if (verdict.ok) {
@@ -203,8 +268,10 @@ async function start() {
       showFeedback('ok', `${name}${good ? '!' : '.'} Solved in ${strokes}.`, `
         ${r.bestStrokes === strokes && r.solves > 1 ? '<p>That ties or beats your best.</p>' : ''}
         ${review}
-        ${nav.next ? `<a class="btn btn-primary btn-small" href="${range.rangeUrls.problem(nav.next.key, filters)}">Next problem →</a>`
-          : `<a class="btn btn-primary btn-small" href="${range.rangeUrls.home(filters)}">Back to the range →</a>`}`);
+        ${roundDone ? `<a class="btn btn-flag btn-small" href="${range.rangeUrls.roundCard()}">⏱️ Round complete. See your scorecard →</a>`
+          : roundNext() ? `<a class="btn btn-primary btn-small" href="${range.rangeUrls.problem(roundNext().key)}">Next round problem →</a>`
+            : nav.next ? `<a class="btn btn-primary btn-small" href="${range.rangeUrls.problem(nav.next.key, filters)}">Next problem →</a>`
+              : `<a class="btn btn-primary btn-small" href="${range.rangeUrls.home(filters)}">Back to the range →</a>`}`);
       renderHint();
       renderSolution();
     } else {
