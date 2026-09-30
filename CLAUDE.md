@@ -114,8 +114,12 @@ re-read every task that says "every" or "each".
 ## How to add a tournament
 
 1. Add an entry to `TOURNAMENTS` in `js/data/tournaments.js`, at its place in the learning order. Fill in `id`,
-   `title`, `event`, `blurb`, `description`, `skills`, and `engine`, plus `dataset` for SQL. Set `holeSet: null`. It
-   now appears on the schedule, and its tournament page says "coming soon", with all 18 hole slots locked.
+   `title`, `event`, `blurb`, `description`, `skills`, and `engine`, plus `dataset` for SQL, and optionally
+   `prerequisite` (an earlier tournament's id). Set `holeSet: null`. It now appears on the schedule, and its tournament
+   page says "coming soon", with all 18 hole slots locked.
+   - Nothing is ever locked behind another tournament: a tournament is playable as soon as it has holes.
+     `prerequisite` only shows "Recommended after X" on the schedule card and tournament page, with a check mark once
+     X is complete.
 2. To open it, create `js/data/holes/<name>.js` (see below) and set `holeSet: '<name>'`.
 3. A new SQL dataset goes in `js/data/datasets/<name>.js` and exports `SEED` (schema + inserts). Keep it deterministic.
 4. Run `npm test`. `tests/tournaments.test.mjs` checks the entry's fields and that it loads.
@@ -135,11 +139,19 @@ most 18. The fields are documented at the top of that file. Keep the difficulty 
   and, if `orderMatters`, the sort order including tie-breaks. The checker compares against the solution's result, so
   anything the task leaves open must not change that result.
 - `solution` is shown to learners as "the pro's line": one clause per line (`SELECT`, `FROM`, `JOIN`, `WHERE`,
-  `GROUP BY`, `HAVING`, `ORDER BY`, `LIMIT`), no surrounding whitespace. Tests enforce this.
+  `GROUP BY`, `HAVING`, `ORDER BY`, `LIMIT`), no surrounding whitespace. A clause keyword may only start a line, so
+  lay out subqueries and CTE bodies one clause per line too. Tests enforce this.
 - No starter code: the editor always opens blank (tests reject a `starter` field).
 - `alternatives`: at least one differently written correct answer the checker must accept.
 - `mistakes`: at least one realistic wrong answer the checker must reject. If the dataset can't tell a mistake apart
-  from the solution, change the task or pick a different mistake. Don't weaken the test.
+  from the solution, change the task or pick a different mistake. Don't weaken the test. Tests also require:
+  - with `orderMatters`, a mistake that returns the right rows in the wrong order (otherwise the order isn't really
+    graded);
+  - from Joins & Subqueries on, when the solution joins tables, a mistake that uses the other join type (LEFT vs
+    INNER).
+- Don't use features a later tournament teaches. Tests reject window functions (`OVER`, `ROW_NUMBER`, `RANK`, `LAG`,
+  `LEAD`, …) in solutions and alternatives of tournaments scheduled before Window Functions.
+- SQL is SQLite's dialect (sql.js): no `FULL OUTER JOIN` or `PERCENTILE_CONT`. `RIGHT JOIN`, `IIF`, and `FILTER` work.
 - Lesson examples should use a different table or column than the task, so they teach without giving the answer.
 
 Then run `npm test`. Also run `npm run test:layout` if you touched layout, and look at the hole at 1440, 1280, and 390px.

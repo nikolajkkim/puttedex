@@ -143,6 +143,7 @@ LIMIT 5;`,
       'SELECT round_id, score FROM rounds ORDER BY score DESC LIMIT 5;',
       'SELECT round_id, score FROM rounds ORDER BY score, round_id LIMIT 6;',
       'SELECT round_id, score FROM rounds ORDER BY score DESC, round_id DESC LIMIT 5;',
+      'SELECT round_id, score FROM rounds ORDER BY score, round_id DESC LIMIT 5;',
     ],
   },
   {
@@ -513,7 +514,8 @@ ORDER BY month ASC;`,
     lesson: `
       <p>A percentage is a conditional count divided by a total. You already have both pieces:</p>
       <pre>SELECT
-  ROUND(100.0 * SUM(CASE WHEN is_pro = 1 THEN 1 ELSE 0 END) / COUNT(*), 1) AS pct_pros
+  ROUND(100.0 * SUM(CASE WHEN is_pro = 1 THEN 1 ELSE 0 END) / COUNT(*), 1)
+    AS pct_pros
 FROM players;</pre>
       <p>Notice the <code>100.0</code>. In SQLite (and Postgres, and SQL Server), dividing an integer by an integer
       <strong>throws away the fraction</strong>: <code>7 / 2</code> is <code>3</code>. Multiplying by <code>100.0</code>
@@ -531,7 +533,10 @@ FROM players;</pre>
     solution: `SELECT
   CASE WHEN p.is_pro = 1 THEN 'Pro' ELSE 'Amateur' END AS player_type,
   COUNT(*) AS rounds_played,
-  ROUND(100.0 * SUM(CASE WHEN r.putts <= 28 THEN 1 ELSE 0 END) / COUNT(*), 1) AS pct_28_putts_or_fewer
+  ROUND(
+    100.0 * SUM(CASE WHEN r.putts <= 28 THEN 1 ELSE 0 END) / COUNT(*),
+    1
+  ) AS pct_28_putts_or_fewer
 FROM rounds AS r
 JOIN players AS p ON p.player_id = r.player_id
 GROUP BY player_type;`,

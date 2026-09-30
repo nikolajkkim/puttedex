@@ -46,7 +46,7 @@ export const TOURNAMENTS = [
     engine: 'sql',
     dataset: 'clubhouse',
     prerequisite: 'sql-basics',
-    holeSet: null,
+    holeSet: 'sql-joins',
   },
   {
     id: 'sql-windows',
