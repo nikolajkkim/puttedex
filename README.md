@@ -1,7 +1,8 @@
 # ⛳ Puttedex
 
-A Codedex-style, golf-themed learning platform for data science. Work through the course map one hole at a time,
-from your first `SELECT` to a full mock interview, and come out ready for data science internship interviews.
+A Codedex-style, golf-themed learning platform for data science. Each concept is a **tournament** of up to 18
+**holes** (problems). Play through the tour schedule, from your first `SELECT` to a full mock interview, and come out
+ready for data science internship interviews.
 
 Everything runs in your browser. SQL runs on [sql.js](https://sql.js.org) (SQLite compiled to WebAssembly), and
 Python is coming via Pyodide. There's no account and no server. Your progress is saved in `localStorage`, and you can
@@ -11,17 +12,19 @@ export and import it as JSON from the Locker room.
 
 | | |
 | --- | --- |
-| **Hole** | One course, such as SQL Basics |
-| **Shot** | One exercise |
+| **Tournament** | One concept, such as SQL Basics, with up to 18 holes |
+| **Hole** | One problem |
 | **Stroke** | One submitted answer. A caddie tip (hint) adds a penalty stroke. |
 | **Practice swing** | Running a query without submitting. It's free. |
 | **Par** | The target stroke count. Beat it for a birdie. |
+| **Round** | One play-through of a tournament. Start a new round to chase a better best score. |
 
 ## Run locally
 
 ```bash
 npm run serve   # then open http://localhost:8000
-npm test        # checks every exercise's solution, starter code, and common mistakes against the real SQL engine
+npm test        # checks every hole's solution, accepted alternatives, and common mistakes against the real SQL engine
+npm run test:layout   # headless Chrome: no page may scroll horizontally at any width
 ```
 
 A local server is required because ES modules and WebAssembly don't load from `file://`.
@@ -31,9 +34,9 @@ A local server is required because ES modules and WebAssembly don't load from `f
 Every push to `main` runs the tests and deploys to GitHub Pages via `.github/workflows/pages.yml`.
 In the repo settings, set **Pages → Source** to **GitHub Actions**.
 
-## Roadmap (front nine)
+## Tour schedule
 
-1. SQL Basics ✅
+1. SQL Basics: holes 1–10 open
 2. Joins & Subqueries
 3. Window Functions
 4. Python Fundamentals
