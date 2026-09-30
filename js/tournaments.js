@@ -1,0 +1,48 @@
+// Loads tournament data (js/data/) into the shape the pages use. Pages never import data files directly.
+
+import { TOURNAMENTS, HOLES_PER_TOURNAMENT } from './data/tournaments.js';
+
+export { TOURNAMENTS, HOLES_PER_TOURNAMENT };
+
+export const tournamentById = (id) => TOURNAMENTS.find((t) => t.id === id) ?? null;
+export const tournamentNumber = (t) => TOURNAMENTS.indexOf(t) + 1;
+export const isOpen = (t) => Boolean(t.holeSet);
+
+export const urls = {
+  schedule: () => './',
+  tournament: (tid) => `tournament.html?t=${encodeURIComponent(tid)}`,
+  courseMap: (tid) => `course.html?t=${encodeURIComponent(tid)}`,
+  hole: (tid, number) => `hole.html?t=${encodeURIComponent(tid)}&h=${number}`,
+};
+
+const cache = new Map();
+
+/**
+ * Resolve a tournament's holes and dataset.
+ * Returns { ...meta, number, holes, seed, par } where holes are in play order and par sums their pars.
+ * A tournament without a holeSet resolves with no holes.
+ */
+export function loadTournament(t) {
+  if (!cache.has(t.id)) {
+    cache.set(t.id, (async () => {
+      const [holesModule, datasetModule] = await Promise.all([
+        t.holeSet ? import(`./data/holes/${t.holeSet}.js`) : null,
+        t.holeSet && t.dataset ? import(`./data/datasets/${t.dataset}.js`) : null,
+      ]);
+      const holes = holesModule?.default ?? [];
+      if (holes.length > HOLES_PER_TOURNAMENT) {
+        throw new Error(`${t.id} defines ${holes.length} holes; the maximum is ${HOLES_PER_TOURNAMENT}.`);
+      }
+      return {
+        ...t,
+        number: tournamentNumber(t),
+        holes,
+        seed: datasetModule?.SEED ?? null,
+        par: holes.reduce((sum, h) => sum + h.par, 0),
+      };
+    })());
+  }
+  return cache.get(t.id);
+}
+
+export const loadAll = () => Promise.all(TOURNAMENTS.map(loadTournament));

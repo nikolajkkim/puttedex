@@ -37,7 +37,7 @@ jobs:
       - name: Assemble site (only files the browser needs)
         run: |
           mkdir _site
-          cp -r index.html course.html .nojekyll css js vendor _site/
+          cp -r *.html .nojekyll css js vendor _site/
           rm -f _site/vendor/sql.js/package.json
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

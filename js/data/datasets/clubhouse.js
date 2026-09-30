@@ -1,7 +1,7 @@
-// Clubhouse database: the golf dataset shared by the SQL holes.
+// Clubhouse dataset: the golf database shared by the SQL tournaments.
 // Changing any row changes expected answers. Run `npm test` after editing.
 
-export const CLUBHOUSE_SCHEMA = `
+export const SCHEMA = `
 CREATE TABLE players (
   player_id  INTEGER PRIMARY KEY,
   name       TEXT NOT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE rounds (
 );
 `;
 
-export const CLUBHOUSE_SEED = CLUBHOUSE_SCHEMA + `
+export const SEED = SCHEMA + `
 INSERT INTO players VALUES
   (1, 'Ava Birdwell', 'USA', 2.4, 1),
   (2, 'Mateo Fairway', 'Spain', 5.1, 0),

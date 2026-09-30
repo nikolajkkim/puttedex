@@ -1,8 +1,8 @@
-import { holeById } from '../courses/index.js';
+import { tournamentById, loadTournament, isOpen, urls, HOLES_PER_TOURNAMENT } from '../tournaments.js';
 import * as progress from '../progress.js';
 import { loadSqlJs, runQuery, describeSchema } from '../lib/sql-runner.js';
 import { compareResults } from '../lib/compare.js';
-import { $, esc, BRAND_SVG, scoreMark } from '../ui/dom.js';
+import { $, esc, BRAND_SVG, crumbs, scoreMark } from '../ui/dom.js';
 
 $('#brand').insertAdjacentHTML('afterbegin', BRAND_SVG);
 
@@ -10,23 +10,22 @@ const MAX_DISPLAY_ROWS = 200;
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
 const MOD = isMac ? '⌘' : 'Ctrl';
 
-const params = new URLSearchParams(location.search);
-const hole = holeById(params.get('hole') ?? 'sql-basics');
 const app = $('#app');
+const meta = tournamentById(new URLSearchParams(location.search).get('t') ?? 'sql-basics');
 
-function fatal(title, detail) {
+function fatal(title, detail, href = urls.schedule(), label = 'Back to the schedule') {
   app.innerHTML = `
     <div class="loading">
       <h1>${esc(title)}</h1>
       <p>${detail}</p>
-      <p><a class="btn btn-primary" href="./#course-map">Back to the course map</a></p>
+      <p><a class="btn btn-primary" href="${href}">${esc(label)}</a></p>
     </div>`;
 }
 
-if (!hole) {
-  fatal('Out of bounds', "That hole doesn't exist.");
-} else if (!hole.load) {
-  fatal(`Hole ${hole.number}: ${hole.title}`, 'This hole is still being built. Check back soon.');
+if (!meta) {
+  fatal('Out of bounds', "That tournament isn't on the schedule.");
+} else if (!isOpen(meta)) {
+  fatal(meta.title, 'This tournament is still being built. Check back soon.', urls.tournament(meta.id), 'Tournament details');
 } else {
   start().catch((err) => {
     console.error(err);
@@ -35,49 +34,50 @@ if (!hole) {
 }
 
 async function start() {
-  const [course, SQL] = await Promise.all([
-    hole.load(),
+  const [t, SQL] = await Promise.all([
+    loadTournament(meta),
     loadSqlJs(window.initSqlJs, (file) => `vendor/sql.js/${file}`),
   ]);
-  const schema = describeSchema(SQL, course.seed);
+  const schema = describeSchema(SQL, t.seed);
   const expectedCache = new Map();
-  const expectedFor = (shot) => {
-    if (!expectedCache.has(shot.id)) expectedCache.set(shot.id, runQuery(SQL, course.seed, shot.solution));
-    return expectedCache.get(shot.id);
+  const expectedFor = (hole) => {
+    if (!expectedCache.has(hole.id)) expectedCache.set(hole.id, runQuery(SQL, t.seed, hole.solution));
+    return expectedCache.get(hole.id);
   };
 
-  const shotIndexFromUrl = () => {
-    const n = parseInt(new URLSearchParams(location.search).get('shot'), 10);
-    return Number.isFinite(n) ? Math.min(Math.max(n, 1), course.shots.length) - 1 : 0;
+  const indexFromUrl = () => {
+    const n = parseInt(new URLSearchParams(location.search).get('h'), 10);
+    return Number.isFinite(n) ? Math.min(Math.max(n, 1), t.holes.length) - 1 : 0;
   };
-  const shotHref = (i) => `course.html?hole=${encodeURIComponent(hole.id)}&shot=${i + 1}`;
 
-  let index = shotIndexFromUrl();
+  let index = indexFromUrl();
 
   // ---------- Rendering ----------
 
-  function renderShotList() {
-    const sum = progress.holeSummary(hole, course.shots);
-    const total = sum.played
-      ? `${sum.played}/${sum.total} holed · ${progress.formatToPar(sum.strokes - sum.parPlayed)}`
-      : `${sum.total} shots · Par ${hole.par}`;
+  function renderHoleList() {
+    const s = progress.roundSummary(t);
+    const total = s.played
+      ? `${s.played}/${s.total} holed · ${progress.formatToPar(s.strokes - s.parPlayed)}`
+      : `${s.total} holes · Par ${t.par}`;
+    const locked = HOLES_PER_TOURNAMENT - t.holes.length;
     return `
-      <nav class="shot-list" aria-label="Shots on this hole">
-        <h2>Hole ${hole.number}: ${esc(course.title)}</h2>
+      <nav class="hole-list" aria-label="Holes in this tournament">
+        <h2><a href="${urls.courseMap(t.id)}">${esc(t.title)}</a></h2>
         <p class="hole-total">${total}</p>
         <ol>
-          ${course.shots.map((s, i) => {
-            const rec = progress.getShot(hole.id, s.id);
+          ${t.holes.map((h, i) => {
+            const rec = progress.getHole(t.id, h.id);
             return `
-              <li><a class="shot-link${rec.solved ? ' done' : ''}" href="${shotHref(i)}" data-shot="${i}"
+              <li><a class="hole-link${rec.solved ? ' done' : ''}" href="${urls.hole(t.id, i + 1)}" data-hole="${i}"
                      ${i === index ? 'aria-current="page"' : ''}>
                 <span class="num">${i + 1}</span>
-                <span class="shot-title">${esc(s.title)}</span>
-                <span class="strokes" title="${rec.solved ? `${rec.strokes} strokes, par ${s.par}` : `Par ${s.par}`}">${
-                  rec.solved ? scoreMark(rec.strokes, s.par) : `P${s.par}`}</span>
+                <span class="hole-title">${esc(h.title)}</span>
+                <span class="strokes" title="${rec.solved ? `${rec.strokes} strokes, par ${h.par}` : `Par ${h.par}`}">${
+                  rec.solved ? scoreMark(rec.strokes, h.par) : `P${h.par}`}</span>
               </a></li>`;
           }).join('')}
         </ol>
+        ${locked > 0 ? `<p class="hole-locked">🔒 Holes ${t.holes.length + 1}–${HOLES_PER_TOURNAMENT} coming soon</p>` : ''}
       </nav>`;
   }
 
@@ -85,10 +85,10 @@ async function start() {
     return `
       <section class="card yardage" aria-labelledby="yardage-title">
         <h2 id="yardage-title">📒 Yardage book: tables you can query</h2>
-        ${schema.map((t, i) => `
+        ${schema.map((tbl, i) => `
           <details ${i === 0 ? 'open' : ''}>
-            <summary>${esc(t.name)} <span>${t.rowCount} rows</span></summary>
-            <ul>${t.columns.map((c) => `
+            <summary>${esc(tbl.name)} <span>${tbl.rowCount} rows</span></summary>
+            <ul>${tbl.columns.map((c) => `
               <li>${esc(c.name)} <span class="type">${esc(c.type.toLowerCase())}${c.nullable ? ', nullable' : ''}</span>
                 ${c.primaryKey ? '<span class="pk">PK</span>' : ''}</li>`).join('')}
             </ul>
@@ -97,28 +97,31 @@ async function start() {
   }
 
   function render() {
-    const shot = course.shots[index];
-    const rec = progress.getShot(hole.id, shot.id);
-    document.title = `${shot.title} · ${course.title} · Puttedex`;
+    const hole = t.holes[index];
+    const rec = progress.getHole(t.id, hole.id);
+    document.title = `Hole ${index + 1}: ${hole.title} · ${t.title} · Puttedex`;
 
     app.innerHTML = `
+      <div class="player-head">
+        ${crumbs([['Schedule', urls.schedule()], [t.title, urls.tournament(t.id)], ['Course map', urls.courseMap(t.id)], [`Hole ${index + 1}`]])}
+      </div>
       <div class="player">
-        ${renderShotList()}
+        ${renderHoleList()}
 
-        <article class="card lesson" aria-labelledby="shot-title">
-          <div class="kicker">Hole ${hole.number} · Shot ${index + 1} of ${course.shots.length} · Par ${shot.par}</div>
-          <h1 id="shot-title">${esc(shot.title)}</h1>
-          ${shot.lesson}
+        <article class="card lesson" aria-labelledby="hole-title">
+          <div class="kicker">${esc(t.title)} · Hole ${index + 1} of ${t.holes.length} · Par ${hole.par}</div>
+          <h1 id="hole-title">${esc(hole.title)}</h1>
+          ${hole.lesson}
           <div class="task">
             <h2>⛳ Your shot</h2>
-            <p>${shot.task}</p>
+            <p>${hole.task}</p>
           </div>
           <div class="hint-box" id="hint-box"></div>
           <div class="pager">
-            ${index > 0 ? `<a class="btn btn-small" href="${shotHref(index - 1)}" data-shot="${index - 1}">← Previous shot</a>` : '<span></span>'}
-            ${index < course.shots.length - 1
-              ? `<a class="btn btn-small" href="${shotHref(index + 1)}" data-shot="${index + 1}">Next shot →</a>`
-              : '<a class="btn btn-small" href="./#scorecard">Back to scorecard →</a>'}
+            ${index > 0 ? `<a class="btn btn-small" href="${urls.hole(t.id, index)}" data-hole="${index - 1}">← Hole ${index}</a>` : '<span></span>'}
+            ${index < t.holes.length - 1
+              ? `<a class="btn btn-small" href="${urls.hole(t.id, index + 2)}" data-hole="${index + 1}">Hole ${index + 2} →</a>`
+              : `<a class="btn btn-small" href="${urls.tournament(t.id)}">Tournament scorecard →</a>`}
           </div>
         </article>
 
@@ -152,31 +155,31 @@ async function start() {
       </div>`;
 
     const editor = $('#editor');
-    editor.value = rec.code ?? shot.starter;
-    wireEditor(editor, shot);
-    renderHint(shot);
-    renderStrokeCount(shot);
-    if (rec.solved) showSolved(shot, rec, false);
+    editor.value = rec.code ?? hole.starter;
+    wireEditor(editor, hole);
+    renderHint(hole);
+    renderStrokeCount(hole);
+    if (rec.solved) showSolved(hole, rec, false);
   }
 
-  function renderStrokeCount(shot) {
-    const rec = progress.getShot(hole.id, shot.id);
+  function renderStrokeCount(hole) {
+    const rec = progress.getHole(t.id, hole.id);
     $('#stroke-count').textContent = rec.solved
-      ? `Holed out in ${rec.strokes} · Par ${shot.par}`
-      : `Strokes: ${rec.strokes} · Par ${shot.par}`;
+      ? `Holed out in ${rec.strokes} · Par ${hole.par}`
+      : `Strokes: ${rec.strokes} · Par ${hole.par}`;
   }
 
-  function renderHint(shot) {
-    const rec = progress.getShot(hole.id, shot.id);
+  function renderHint(hole) {
+    const rec = progress.getHole(t.id, hole.id);
     const box = $('#hint-box');
     if (rec.hintUsed || rec.solved) {
-      box.innerHTML = `<strong>🧢 Caddie tip${rec.hintUsed ? ' (+1 penalty stroke)' : ''}</strong><div class="hint">${shot.hint}</div>`;
+      box.innerHTML = `<strong>🧢 Caddie tip${rec.hintUsed ? ' (+1 penalty stroke)' : ''}</strong><div class="hint">${hole.hint}</div>`;
     } else {
       box.innerHTML = '<button class="btn btn-small" id="hint-btn" type="button">🧢 Ask your caddie (+1 stroke)</button>';
       $('#hint-btn').addEventListener('click', () => {
-        progress.useHint(hole.id, shot.id);
-        renderHint(shot);
-        renderStrokeCount(shot);
+        progress.useHint(t.id, hole.id);
+        renderHint(hole);
+        renderStrokeCount(hole);
       });
     }
   }
@@ -202,7 +205,7 @@ async function start() {
 
   function execute(code) {
     try {
-      const result = runQuery(SQL, course.seed, code);
+      const result = runQuery(SQL, t.seed, code);
       $('#results').innerHTML = renderTable(result);
       return { result };
     } catch (err) {
@@ -211,70 +214,71 @@ async function start() {
     }
   }
 
-  function showSolved(shot, rec, justNow) {
-    const name = progress.scoreName(rec.strokes, shot.par);
-    const next = index < course.shots.length - 1;
-    const allDone = progress.holeSummary(hole, course.shots).complete;
-    const underOrPar = rec.strokes <= shot.par;
+  function showSolved(hole, rec, justNow) {
+    const name = progress.scoreName(rec.strokes, hole.par);
+    const hasNext = index < t.holes.length - 1;
+    const round = progress.roundSummary(t);
+    const underOrPar = rec.strokes <= hole.par;
     const title = justNow
       ? `${name}${underOrPar ? '!' : '.'} Holed out in ${rec.strokes}.`
-      : `Holed out: ${name.toLowerCase()} (${rec.strokes} on a par ${shot.par})`;
+      : `Holed out: ${name.toLowerCase()} (${rec.strokes} on a par ${hole.par})`;
     const cheer = !justNow ? ''
       : underOrPar ? '<p>Clean strike. That\'s interview-ready SQL.</p>'
         : '<p>In the hole. Compare your query with the pro\'s line below. There\'s often a tidier way.</p>';
+    const next = round.complete
+      ? `<a class="btn btn-flag btn-small" href="${urls.tournament(t.id)}">🏆 Every open hole played. See your scorecard</a>`
+      : hasNext
+        ? `<a class="btn btn-primary btn-small" href="${urls.hole(t.id, index + 2)}" data-hole="${index + 1}">Hole ${index + 2} →</a>`
+        : `<a class="btn btn-primary btn-small" href="${urls.hole(t.id, round.nextIndex + 1)}" data-hole="${round.nextIndex}">Play hole ${round.nextIndex + 1}, still open →</a>`;
     feedback('ok', title, `
       ${cheer}
-      <details><summary>See the pro's line (reference solution)</summary><pre><code>${esc(shot.solution)}</code></pre></details>
-      ${next
-        ? `<a class="btn btn-primary btn-small" href="${shotHref(index + 1)}" data-shot="${index + 1}">Next shot →</a>`
-        : allDone
-          ? '<a class="btn btn-flag btn-small" href="./#scorecard">🏆 Hole complete. See your scorecard</a>'
-          : '<p>That was the last shot. Go back and finish any open shots to complete the hole.</p>'}`);
+      <details><summary>See the pro's line (reference solution)</summary><pre><code>${esc(hole.solution)}</code></pre></details>
+      ${next}`);
   }
 
   // ---------- Actions ----------
 
-  function run(shot, editor) {
+  function run(hole, editor) {
     const { error } = execute(editor.value);
     if (error) feedback('error', 'Shanked it. SQL error', `<p><code>${esc(error)}</code></p>`);
     else feedback('info', 'Practice swing', '<p>That one didn\'t count. Submit when you\'re ready to take the shot.</p>');
   }
 
-  function submit(shot, editor) {
+  function submit(hole, editor) {
     const code = editor.value;
     const { result, error } = execute(code);
-    let verdict;
-    if (error) verdict = { ok: false, message: `SQL error: ${error}` };
-    else verdict = compareResults(result, expectedFor(shot), { orderMatters: shot.orderMatters });
+    const verdict = error
+      ? { ok: false, message: `SQL error: ${error}` }
+      : compareResults(result, expectedFor(hole), { orderMatters: hole.orderMatters });
 
-    const wasSolved = progress.getShot(hole.id, shot.id).solved;
-    const rec = progress.recordStroke(hole.id, shot.id, verdict.ok, code);
-    renderStrokeCount(shot);
+    const wasSolved = progress.getHole(t.id, hole.id).solved;
+    const rec = progress.recordStroke(t.id, hole.id, verdict.ok, code);
+    renderStrokeCount(hole);
 
     if (verdict.ok) {
-      showSolved(shot, rec, !wasSolved);
+      showSolved(hole, rec, !wasSolved);
       if (!wasSolved) {
         // Refresh the sidebar marks without losing the editor.
-        $('.shot-list').outerHTML = renderShotList();
-        renderHint(shot);
+        $('.hole-list').outerHTML = renderHoleList();
+        renderHint(hole);
       }
     } else {
-      const lead = wasSolved ? 'Not quite. (This shot is already holed, so no stroke was added.)' : `Stroke ${rec.strokes}: not in the hole yet.`;
+      const lead = wasSolved ? 'Not quite. (This hole is already holed, so no stroke was added.)' : `Stroke ${rec.strokes}: not in the hole yet.`;
       feedback(error ? 'error' : 'miss', lead, `<p>${esc(verdict.message)}</p>`);
     }
   }
 
-  function wireEditor(editor, shot) {
+  function wireEditor(editor, hole) {
     let saveTimer;
     editor.addEventListener('input', () => {
       clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => progress.saveDraft(hole.id, shot.id, editor.value), 300);
+      saveTimer = setTimeout(() => progress.saveDraft(t.id, hole.id, editor.value), 300);
     });
     editor.addEventListener('keydown', (e) => {
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key === 'Enter') {
         e.preventDefault();
-        (e.shiftKey ? submit : run)(shot, editor);
+        (e.shiftKey ? submit : run)(hole, editor);
       } else if (e.key === 'Tab' && !e.shiftKey && !mod && !e.altKey) {
         // Indent instead of leaving the editor. Esc then Tab still moves focus, for keyboard users.
         if (editor.dataset.escaped) return;
@@ -286,34 +290,35 @@ async function start() {
       }
     });
     editor.addEventListener('blur', () => delete editor.dataset.escaped);
-    $('#run-btn').addEventListener('click', () => run(shot, editor));
-    $('#submit-btn').addEventListener('click', () => submit(shot, editor));
+    $('#run-btn').addEventListener('click', () => run(hole, editor));
+    $('#submit-btn').addEventListener('click', () => submit(hole, editor));
     $('#reset-code-btn').addEventListener('click', () => {
-      editor.value = shot.starter;
-      progress.saveDraft(hole.id, shot.id, shot.starter);
+      editor.value = hole.starter;
+      progress.saveDraft(t.id, hole.id, hole.starter);
       editor.focus();
     });
   }
 
   // ---------- Navigation (in-page, so the SQL engine stays warm) ----------
 
+  const saveCurrentDraft = () => {
+    const editor = $('#editor');
+    if (editor) progress.saveDraft(t.id, t.holes[index].id, editor.value);
+  };
+
   app.addEventListener('click', (e) => {
-    const link = e.target.closest('a[data-shot]');
+    const link = e.target.closest('a[data-hole]');
     if (!link || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
     e.preventDefault();
-    const editor = $('#editor');
-    if (editor) progress.saveDraft(hole.id, course.shots[index].id, editor.value);
-    index = Number(link.dataset.shot);
-    history.pushState({ index }, '', shotHref(index));
+    saveCurrentDraft();
+    index = Number(link.dataset.hole);
+    history.pushState({ index }, '', urls.hole(t.id, index + 1));
     render();
     window.scrollTo({ top: 0 });
     $('#editor')?.focus({ preventScroll: true });
   });
-  window.addEventListener('popstate', () => { index = shotIndexFromUrl(); render(); });
-  window.addEventListener('pagehide', () => {
-    const editor = $('#editor');
-    if (editor) progress.saveDraft(hole.id, course.shots[index].id, editor.value);
-  });
+  window.addEventListener('popstate', () => { index = indexFromUrl(); render(); });
+  window.addEventListener('pagehide', saveCurrentDraft);
 
   render();
 }

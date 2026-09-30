@@ -25,3 +25,13 @@ export function scoreMark(strokes, par) {
   const cls = strokes < par ? 'under' : strokes > par ? 'over' : '';
   return `<span class="score-mark ${cls}">${strokes}</span>`;
 }
+
+/** Breadcrumb trail: [[label, href], ..., [label]]; the last item is the current page. */
+export function crumbs(items) {
+  return `
+    <nav class="crumbs" aria-label="Breadcrumb"><ol>${items.map(([label, href], i) => (
+      i === items.length - 1 || !href
+        ? `<li><span aria-current="page">${esc(label)}</span></li>`
+        : `<li><a href="${href}">${esc(label)}</a></li>`)).join('')}
+    </ol></nav>`;
+}

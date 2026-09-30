@@ -16,51 +16,35 @@
     <div class="topbar-inner">
       <a class="brand" href="./" id="brand">Puttedex</a>
       <nav aria-label="Main">
-        <a href="#course-map">Course map</a>
-        <a href="#scorecard">Scorecard</a>
-        <a href="#locker-room">Locker room</a>
+        <a href="./#schedule-title">Schedule</a>
+        <a href="./#locker-room">Locker room</a>
       </nav>
     </div>
   </header>
 
   <section class="hero">
     <div class="hero-inner">
-      <span class="eyebrow">Data science interview prep · Front nine</span>
+      <span class="eyebrow">Data science interview prep · The tour</span>
       <h1>Learn data science, one hole at a time.</h1>
-      <p>Write real SQL and Python against a golf database, right in your browser. Every exercise is a shot:
-        hole out under par and you're ready for the interview.</p>
+      <p>Write real SQL and Python against a golf database, right in your browser. Each concept is a tournament,
+        and each problem is a hole. Finish the tour under par and you're ready for the interview.</p>
       <div class="hero-actions">
         <a class="btn btn-flag" id="cta" href="course.html?hole=sql-basics">Tee off: SQL Basics</a>
-        <a class="btn btn-ghost" href="#course-map">View the course map</a>
+        <a class="btn btn-ghost" href="#schedule-title">See the tour schedule</a>
       </div>
     </div>
   </section>
 
   <main class="page">
-    <section class="section" id="course-map" aria-labelledby="map-title">
+    <section class="section" aria-labelledby="schedule-title">
       <div class="section-head">
         <div>
-          <h2 id="map-title">The course map</h2>
-          <p>Nine holes from your first <code>SELECT</code> to a full mock interview. Play them in order.</p>
+          <h2 id="schedule-title">The tour schedule</h2>
+          <p>Nine tournaments, from your first <code>SELECT</code> to a full mock interview, in learning order.
+            Each tournament has 18 holes.</p>
         </div>
       </div>
-      <ol class="course-map" id="map"></ol>
-    </section>
-
-    <section class="section" id="scorecard" aria-labelledby="card-title">
-      <div class="section-head">
-        <div>
-          <h2 id="card-title">Your scorecard</h2>
-          <p>A stroke is one submitted answer. A caddie tip costs one penalty stroke. Practice swings (Run) are free.</p>
-        </div>
-      </div>
-      <div class="scorecard-wrap"><table class="scorecard" id="scorecard-table"></table></div>
-      <div class="scorecard-legend">
-        <span><span class="score-mark under">3</span>Under par</span>
-        <span><span class="score-mark">4</span>Par</span>
-        <span><span class="score-mark over">5</span>Over par</span>
-        <span><em>thru N</em>: shots completed on a hole in progress</span>
-      </div>
+      <ol class="roadmap" id="schedule"></ol>
     </section>
 
     <section class="section" id="locker-room" aria-labelledby="locker-title">
@@ -94,6 +78,6 @@
 
   <footer class="footer">Puttedex runs entirely in your browser. No account, no server. Your code never leaves your machine.</footer>
 
-  <script type="module" src="js/pages/home.js"></script>
+  <script type="module" src="js/pages/schedule.js"></script>
 </body>
 </html>

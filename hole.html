@@ -9,6 +9,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="css/styles.css">
+  <!-- Defines the global initSqlJs; the .wasm is fetched from the same folder. -->
+  <script src="vendor/sql.js/sql-wasm.js"></script>
 </head>
 <body>
   <header class="topbar">
@@ -24,10 +26,10 @@
   <main id="app">
     <div class="loading">
       <div class="ball" aria-hidden="true"></div>
-      <p>Walking the course…</p>
+      <p>Warming up on the driving range…</p>
     </div>
   </main>
 
-  <script type="module" src="js/pages/course-map.js"></script>
+  <script type="module" src="js/pages/hole.js"></script>
 </body>
 </html>
