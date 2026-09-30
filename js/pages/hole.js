@@ -3,6 +3,7 @@ import * as progress from '../progress.js';
 import { loadSqlJs, runQuery, describeSchema } from '../lib/sql-runner.js';
 import { compareResults } from '../lib/compare.js';
 import { $, esc, BRAND_SVG, crumbs, scoreMark } from '../ui/dom.js';
+import { createSqlEditor, highlightSql } from '../ui/sql-editor.js';
 
 $('#brand').insertAdjacentHTML('afterbegin', BRAND_SVG);
 
@@ -51,6 +52,7 @@ async function start() {
   };
 
   let index = indexFromUrl();
+  let editor = null; // the CodeMirror instance for the current hole
 
   // ---------- Rendering ----------
 
@@ -83,7 +85,7 @@ async function start() {
 
   function renderYardageBook() {
     return `
-      <section class="card yardage" aria-labelledby="yardage-title">
+      <section class="yardage" aria-labelledby="yardage-title">
         <h2 id="yardage-title">📒 Yardage book: tables you can query</h2>
         ${schema.map((tbl, i) => `
           <details ${i === 0 ? 'open' : ''}>
@@ -117,6 +119,7 @@ async function start() {
             <p>${hole.task}</p>
           </div>
           <div class="hint-box" id="hint-box"></div>
+          ${renderYardageBook()}
           <div class="pager">
             ${index > 0 ? `<a class="btn btn-small" href="${urls.hole(t.id, index)}" data-hole="${index - 1}">← Hole ${index}</a>` : '<span></span>'}
             ${index < t.holes.length - 1
@@ -131,14 +134,12 @@ async function start() {
               <strong>query.sql</strong>
               <span>SQLite · <kbd>${MOD}</kbd>+<kbd>Enter</kbd> run · <kbd>${MOD}</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd> submit</span>
             </div>
-            <label class="visually-hidden" for="editor">SQL query</label>
-            <textarea id="editor" class="editor" spellcheck="false" autocapitalize="off" autocomplete="off"
-                      autocorrect="off"></textarea>
+            <div id="editor" class="editor-host"></div>
             <div class="editor-actions">
               <button class="btn" id="run-btn" type="button" title="Run without using a stroke">🏌️ Practice swing (Run)</button>
               <button class="btn btn-primary" id="submit-btn" type="button" title="Check your answer (costs one stroke)">⛳ Take the shot (Submit)</button>
               <span class="spacer"></span>
-              <button class="btn btn-ghost btn-small" id="reset-code-btn" type="button">Reset code</button>
+              <button class="btn btn-ghost btn-small" id="clear-btn" type="button" title="Clear the editor (undo with ${MOD}+Z)">Clear</button>
               <span class="stroke-count" id="stroke-count"></span>
             </div>
           </section>
@@ -149,14 +150,12 @@ async function start() {
             <h2 id="results-title">Results</h2>
             <div id="results"><p class="empty">Run a query to see its results here.</p></div>
           </section>
-
-          ${renderYardageBook()}
         </div>
       </div>`;
 
-    const editor = $('#editor');
-    editor.value = rec.code ?? hole.starter;
-    wireEditor(editor, hole);
+    // Lesson examples are read-only: highlight them on paper so they never look like the editor.
+    app.querySelectorAll('.lesson pre').forEach((pre) => highlightSql(pre, pre.textContent, 'paper'));
+    mountEditor(hole, rec.code ?? '');
     renderHint(hole);
     renderStrokeCount(hole);
     if (rec.solved) showSolved(hole, rec, false);
@@ -232,20 +231,22 @@ async function start() {
         : `<a class="btn btn-primary btn-small" href="${urls.hole(t.id, round.nextIndex + 1)}" data-hole="${round.nextIndex}">Play hole ${round.nextIndex + 1}, still open →</a>`;
     feedback('ok', title, `
       ${cheer}
-      <details><summary>See the pro's line (reference solution)</summary><pre><code>${esc(hole.solution)}</code></pre></details>
+      <details><summary>See the pro's line (reference solution)</summary><pre class="pro-line"></pre></details>
       ${next}`);
+    highlightSql($('#feedback .pro-line'), hole.solution);
   }
 
   // ---------- Actions ----------
 
-  function run(hole, editor) {
-    const { error } = execute(editor.value);
+  function run() {
+    const { error } = execute(editor.getValue());
     if (error) feedback('error', 'Shanked it. SQL error', `<p><code>${esc(error)}</code></p>`);
     else feedback('info', 'Practice swing', '<p>That one didn\'t count. Submit when you\'re ready to take the shot.</p>');
   }
 
-  function submit(hole, editor) {
-    const code = editor.value;
+  function submit() {
+    const hole = t.holes[index];
+    const code = editor.getValue();
     const { result, error } = execute(code);
     const verdict = error
       ? { ok: false, message: `SQL error: ${error}` }
@@ -268,33 +269,23 @@ async function start() {
     }
   }
 
-  function wireEditor(editor, hole) {
+  function mountEditor(hole, code) {
     let saveTimer;
-    editor.addEventListener('input', () => {
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(() => progress.saveDraft(t.id, hole.id, editor.value), 300);
+    editor = createSqlEditor($('#editor'), {
+      value: code,
+      placeholder: `-- Write your SQL here. ${MOD}+Enter runs it.`,
+      label: `SQL editor for hole ${index + 1}`,
+      run,
+      submit,
+      onChange: (value) => {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => progress.saveDraft(t.id, hole.id, value), 300);
+      },
     });
-    editor.addEventListener('keydown', (e) => {
-      const mod = e.metaKey || e.ctrlKey;
-      if (mod && e.key === 'Enter') {
-        e.preventDefault();
-        (e.shiftKey ? submit : run)(hole, editor);
-      } else if (e.key === 'Tab' && !e.shiftKey && !mod && !e.altKey) {
-        // Indent instead of leaving the editor. Esc then Tab still moves focus, for keyboard users.
-        if (editor.dataset.escaped) return;
-        e.preventDefault();
-        editor.setRangeText('  ', editor.selectionStart, editor.selectionEnd, 'end');
-        editor.dispatchEvent(new Event('input'));
-      } else if (e.key === 'Escape') {
-        editor.dataset.escaped = '1';
-      }
-    });
-    editor.addEventListener('blur', () => delete editor.dataset.escaped);
-    $('#run-btn').addEventListener('click', () => run(hole, editor));
-    $('#submit-btn').addEventListener('click', () => submit(hole, editor));
-    $('#reset-code-btn').addEventListener('click', () => {
-      editor.value = hole.starter;
-      progress.saveDraft(t.id, hole.id, hole.starter);
+    $('#run-btn').addEventListener('click', run);
+    $('#submit-btn').addEventListener('click', submit);
+    $('#clear-btn').addEventListener('click', () => {
+      editor.setValue('');
       editor.focus();
     });
   }
@@ -302,8 +293,7 @@ async function start() {
   // ---------- Navigation (in-page, so the SQL engine stays warm) ----------
 
   const saveCurrentDraft = () => {
-    const editor = $('#editor');
-    if (editor) progress.saveDraft(t.id, t.holes[index].id, editor.value);
+    if (editor) progress.saveDraft(t.id, t.holes[index].id, editor.getValue());
   };
 
   app.addEventListener('click', (e) => {
@@ -315,7 +305,7 @@ async function start() {
     history.pushState({ index }, '', urls.hole(t.id, index + 1));
     render();
     window.scrollTo({ top: 0 });
-    $('#editor')?.focus({ preventScroll: true });
+    editor.focus();
   });
   window.addEventListener('popstate', () => { index = indexFromUrl(); render(); });
   window.addEventListener('pagehide', saveCurrentDraft);

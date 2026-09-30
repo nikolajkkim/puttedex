@@ -92,3 +92,17 @@ test('strokes stop counting after a hole is solved, and hints cost one stroke on
   assert.equal(h.strokes, 3);
   assert.equal(h.code, 'z');
 });
+
+test('drafts that are just the old prefilled starter code are dropped; real drafts are kept', () => {
+  const v1 = {
+    version: 1,
+    shots: {
+      'sql-basics/where': { strokes: 0, solved: false, code: 'SELECT name, handicap\nFROM players\n' },
+      'sql-basics/null': { strokes: 1, solved: false, code: 'SELECT name\nFROM players\nWHERE handicap IS NULL' },
+    },
+  };
+  progress.importJson(JSON.stringify(v1));
+  assert.equal(progress.getHole('sql-basics', 'where').code, null);
+  assert.equal(progress.getHole('sql-basics', 'null').code, 'SELECT name\nFROM players\nWHERE handicap IS NULL');
+  assert.equal(progress.getHole('sql-basics', 'null').strokes, 1);
+});

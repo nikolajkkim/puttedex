@@ -20,6 +20,21 @@ const VERSION = 2;
 const empty = () => ({ version: VERSION, updatedAt: null, holes: {}, rounds: {} });
 const blankHole = () => ({ strokes: 0, hintUsed: false, solved: false, solvedAt: null, code: null });
 
+// Editor code that the first version prefilled. A saved draft identical to one of these was never typed by
+// the learner, so it's dropped on load and the editor opens blank like every other hole.
+const RETIRED_PREFILLS = new Set([
+  '-- Your first tee shot: look at the players table',
+  'SELECT\nFROM players;',
+  'SELECT name, handicap\nFROM players',
+  'SELECT round_id, score, putts\nFROM rounds\nWHERE',
+  'SELECT round_id, score\nFROM rounds',
+  'SELECT country\nFROM players;',
+  'SELECT name\nFROM players\nWHERE handicap = NULL;',
+  'SELECT\nFROM rounds;',
+  'SELECT player_id\nFROM rounds',
+  'SELECT c.name\nFROM rounds AS r\nJOIN courses AS c ON',
+]);
+
 let memoryFallback = null; // used when localStorage is unavailable (private mode, blocked storage)
 
 function storage() {
@@ -36,7 +51,7 @@ function normalizeHole(h) {
     hintUsed: !!h.hintUsed,
     solved: !!h.solved,
     solvedAt: typeof h.solvedAt === 'string' ? h.solvedAt : null,
-    code: typeof h.code === 'string' ? h.code : null,
+    code: typeof h.code === 'string' && !RETIRED_PREFILLS.has(h.code.trim()) ? h.code : null,
   };
 }
 

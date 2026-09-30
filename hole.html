@@ -8,9 +8,18 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="vendor/codemirror/codemirror.css">
   <link rel="stylesheet" href="css/styles.css">
   <!-- Defines the global initSqlJs; the .wasm is fetched from the same folder. -->
   <script src="vendor/sql.js/sql-wasm.js"></script>
+  <!-- CodeMirror 5 (global CodeMirror): editor with line numbers, SQL highlighting, and indentation. -->
+  <script src="vendor/codemirror/codemirror.js"></script>
+  <script src="vendor/codemirror/sql.js"></script>
+  <script src="vendor/codemirror/placeholder.js"></script>
+  <script src="vendor/codemirror/matchbrackets.js"></script>
+  <script src="vendor/codemirror/closebrackets.js"></script>
+  <script src="vendor/codemirror/comment.js"></script>
+  <script src="vendor/codemirror/runmode.js"></script>
 </head>
 <body>
   <header class="topbar">

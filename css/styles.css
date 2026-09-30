@@ -507,21 +507,54 @@ a.stop-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgb(20 4
   flex-wrap: wrap;
 }
 .editor-head strong { color: #fff; font-weight: 600; }
-.editor {
-  display: block;
-  width: 100%;
-  min-height: 220px;
-  resize: vertical;
-  border: 0;
-  padding: 0.9rem 1rem;
-  font-size: 0.92rem;
-  line-height: 1.55;
-  color: #e9f3e5;
-  background: #173a23;
-  tab-size: 2;
-  caret-color: var(--sand);
+/* CodeMirror editor, theme "fairway" (also used for the highlighted pro's line). */
+.editor-host .CodeMirror {
+  height: auto;
+  font: 0.92rem/1.55 var(--font-mono);
 }
-.editor:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--sand-dark); }
+.editor-host .CodeMirror-scroll { min-height: 240px; max-height: 480px; }
+.cm-s-fairway.CodeMirror, .cm-s-fairway.sql-static { background: #173a23; color: #e9f3e5; }
+.cm-s-fairway .CodeMirror-gutters { background: var(--fairway-deep); border-right: 1px solid #2a5236; }
+.cm-s-fairway .CodeMirror-linenumber { color: #7fa187; padding: 0 10px 0 6px; }
+.cm-s-fairway .CodeMirror-cursor { border-left: 2px solid var(--sand); }
+.cm-s-fairway .CodeMirror-selected, .cm-s-fairway.CodeMirror-focused .CodeMirror-selected { background: rgb(255 255 255 / 0.16); }
+.cm-s-fairway .CodeMirror-line::selection, .cm-s-fairway .CodeMirror-line > span::selection { background: rgb(255 255 255 / 0.16); }
+.cm-s-fairway .CodeMirror-matchingbracket { color: #fff !important; background: rgb(240 213 140 / 0.3); }
+.cm-s-fairway .CodeMirror-placeholder { color: #86a78d; font-style: italic; }
+.cm-s-fairway .cm-keyword { color: #f2cf73; font-weight: 600; }
+.cm-s-fairway .cm-string, .cm-s-fairway .cm-string-2 { color: #ffb8a3; }
+.cm-s-fairway .cm-number { color: #a8d8ff; }
+.cm-s-fairway .cm-comment { color: #86a78d; font-style: italic; }
+.cm-s-fairway .cm-builtin, .cm-s-fairway .cm-type { color: #b5e3b0; }
+.cm-s-fairway .cm-atom { color: #e6b3ff; }
+.cm-s-fairway .cm-operator, .cm-s-fairway .cm-punctuation, .cm-s-fairway .cm-bracket { color: #d4e4cf; }
+.editor-host .CodeMirror-focused { box-shadow: inset 0 0 0 2px var(--sand-dark); }
+
+/* Read-only highlighted SQL on paper: lesson examples. Deliberately unlike the editor. */
+.cm-s-paper.sql-static { background: #f6f2e3; color: var(--ink); }
+.cm-s-paper .cm-keyword { color: #1f6f3a; font-weight: 700; }
+.cm-s-paper .cm-string, .cm-s-paper .cm-string-2 { color: #a3402b; }
+.cm-s-paper .cm-number { color: #1f5f9e; }
+.cm-s-paper .cm-comment { color: #7a7f6f; font-style: italic; }
+.cm-s-paper .cm-builtin, .cm-s-paper .cm-type { color: #6b4fa0; }
+.lesson pre {
+  position: relative;
+  border: 1px solid #e3dac0;
+  border-left: 4px solid var(--sand-dark);
+  padding-top: 1.55rem;
+}
+.lesson pre::before {
+  content: 'Example';
+  position: absolute;
+  top: 0.35rem;
+  left: 1rem;
+  font: 700 0.65rem var(--font-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8a7440;
+}
+pre.pro-line { margin: 0.5rem 0 0; white-space: pre; }
+
 .editor-actions {
   display: flex;
   gap: 0.5rem;
@@ -549,6 +582,13 @@ a.stop-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgb(20 4
 .feedback details pre { margin: 0.5rem 0 0; }
 
 .results-card h2, .yardage h2 { font-size: 1rem; margin: 0 0 0.6rem; font-family: var(--font-body); }
+.lesson .yardage {
+  margin-top: 1.1rem;
+  padding: 0.9rem 1rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fbfbf6;
+}
 .results-meta { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.4rem; }
 .table-scroll { overflow: auto; max-height: 360px; border: 1px solid var(--line); border-radius: 8px; }
 .data-table { border-collapse: collapse; width: 100%; font-size: 0.84rem; font-variant-numeric: tabular-nums; }
