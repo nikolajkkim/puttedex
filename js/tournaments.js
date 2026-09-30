@@ -7,6 +7,8 @@ export { TOURNAMENTS, HOLES_PER_TOURNAMENT };
 export const tournamentById = (id) => TOURNAMENTS.find((t) => t.id === id) ?? null;
 export const tournamentNumber = (t) => TOURNAMENTS.indexOf(t) + 1;
 export const isOpen = (t) => Boolean(t.holeSet);
+/** The tournament this one builds on (a recommendation, never a lock), or null. */
+export const prerequisiteOf = (t) => (t.prerequisite ? tournamentById(t.prerequisite) : null);
 
 export const urls = {
   schedule: () => './',

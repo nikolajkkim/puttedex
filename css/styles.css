@@ -251,6 +251,10 @@ a.stop-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgb(20 4
 }
 .stop-meta h3 { margin: 0.15rem 0 0.3rem; font-size: 1.2rem; }
 .stop-meta p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.stop-meta .prereq { font-size: 0.8rem; font-weight: 600; color: var(--muted); margin: 0.35rem 0 0; }
+.stop-meta .prereq.is-done { color: var(--fairway); }
+.prereq-note { margin: 1rem 0 0 !important; font-size: 0.92rem; }
+.prereq-note a { color: #fff; font-weight: 700; }
 .stop-meta .event { font-style: italic; color: var(--fairway); margin-bottom: 0.3rem; }
 .chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.6rem; }
 .chip {

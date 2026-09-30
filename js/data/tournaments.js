@@ -13,6 +13,8 @@
 //   engine       'sql' (sql.js) or, later, 'python' (Pyodide)
 //   dataset      module in js/data/datasets/ whose SEED builds the database, for SQL tournaments
 //   holeSet      module in js/data/holes/, or null while the tournament has no holes yet
+//   prerequisite id of an earlier tournament this one builds on. Shown as a recommendation, not a lock: like
+//                SQL Basics, a tournament is playable as soon as it has holes.
 
 export const HOLES_PER_TOURNAMENT = 18;
 
@@ -35,12 +37,15 @@ export const TOURNAMENTS = [
     id: 'sql-joins',
     title: 'Joins & Subqueries',
     event: 'The Match Play Classic',
-    blurb: 'LEFT JOINs, self-joins, subqueries, and CTEs: the questions that split candidates.',
-    description: 'The step from "knows SQL" to "passes the SQL round". Outer joins and the rows they keep, '
-      + 'self-joins, anti-joins, subqueries, and common table expressions for multi-step questions.',
-    skills: ['LEFT JOIN', 'Self-join', 'Subqueries', 'CTE'],
+    blurb: 'LEFT JOINs, self-joins, subqueries, EXISTS, and CTEs: the questions that split candidates.',
+    description: 'The step from "knows SQL" to "passes the SQL round". You\'ll learn which rows each join keeps and '
+      + 'drops, find what\'s missing with anti-joins, pair rows with self-joins, and answer multi-step questions with '
+      + 'subqueries, EXISTS, and common table expressions. It finishes with the classics interviewers love: '
+      + 'second-highest values and month-over-month change, without window functions.',
+    skills: ['INNER/LEFT JOIN', 'Self-join', 'Subqueries', 'EXISTS', 'CASE WHEN', 'CTE'],
     engine: 'sql',
     dataset: 'clubhouse',
+    prerequisite: 'sql-basics',
     holeSet: null,
   },
   {

@@ -18,6 +18,14 @@ test('every tournament has the fields the pages render', () => {
   }
 });
 
+test('a prerequisite names an earlier tournament', () => {
+  for (const [i, t] of TOURNAMENTS.entries()) {
+    if (!t.prerequisite) continue;
+    const j = TOURNAMENTS.findIndex((x) => x.id === t.prerequisite);
+    assert.ok(j !== -1 && j < i, `${t.id}.prerequisite must be an earlier tournament, got ${t.prerequisite}`);
+  }
+});
+
 test('at least one tournament is open', () => {
   assert.ok(TOURNAMENTS.some(isOpen));
 });

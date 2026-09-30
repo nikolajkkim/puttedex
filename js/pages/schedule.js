@@ -1,10 +1,18 @@
-import { loadAll, isOpen, urls, HOLES_PER_TOURNAMENT } from '../tournaments.js';
+import { loadAll, isOpen, prerequisiteOf, urls, HOLES_PER_TOURNAMENT } from '../tournaments.js';
 import * as progress from '../progress.js';
 import { $, esc, BRAND_SVG } from '../ui/dom.js';
 
 $('#brand').insertAdjacentHTML('afterbegin', BRAND_SVG);
 
 const tournaments = await loadAll();
+
+/** "Recommended after X" line for a tournament with a prerequisite; a check mark once X is complete. */
+function prereqNote(t) {
+  const pre = prerequisiteOf(t);
+  if (!pre) return '';
+  const done = progress.roundSummary(tournaments.find((x) => x.id === pre.id)).complete;
+  return `<p class="prereq${done ? ' is-done' : ''}">${done ? '✓ ' : ''}Recommended after ${esc(pre.title)}</p>`;
+}
 
 function card(t, i) {
   const place = `style="grid-row: ${i + 1} / span 2"`;
@@ -19,6 +27,7 @@ function card(t, i) {
             <h3>${esc(t.title)}</h3>
             <p class="event">${esc(t.event)}</p>
             <p>${esc(t.blurb)}</p>
+            ${prereqNote(t)}
             ${chips}
           </div>
         </a>
@@ -38,6 +47,7 @@ function card(t, i) {
           <h3>${esc(t.title)}</h3>
           <p class="event">${esc(t.event)}</p>
           <p>${esc(t.blurb)}</p>
+          ${prereqNote(t)}
           ${chips}
           <div class="progress-bar" role="progressbar" aria-label="${esc(t.title)} progress"
                aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div>

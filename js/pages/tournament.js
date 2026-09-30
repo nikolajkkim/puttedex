@@ -1,4 +1,4 @@
-import { tournamentById, loadTournament, isOpen, urls, HOLES_PER_TOURNAMENT } from '../tournaments.js';
+import { tournamentById, loadTournament, isOpen, prerequisiteOf, urls, HOLES_PER_TOURNAMENT } from '../tournaments.js';
 import * as progress from '../progress.js';
 import { $, esc, BRAND_SVG, crumbs } from '../ui/dom.js';
 import { renderScorecard } from '../ui/scorecard.js';
@@ -17,6 +17,8 @@ if (!meta) {
     </div>`;
 } else {
   const t = await loadTournament(meta);
+  const pre = prerequisiteOf(meta);
+  const preLoaded = pre ? await loadTournament(pre) : null;
   document.title = `${t.title} · Puttedex`;
 
   const render = () => {
@@ -28,6 +30,16 @@ if (!meta) {
     const stat = (label, value, note = '') => `
       <div class="stat"><div class="stat-label">${label}</div><div class="stat-value">${value}</div>${
         note ? `<div class="stat-note">${note}</div>` : ''}</div>`;
+
+    // A prerequisite is a recommendation, never a lock (see js/data/tournaments.js).
+    let preNote = '';
+    if (preLoaded) {
+      const done = progress.roundSummary(preLoaded).complete;
+      preNote = `<p class="prereq-note">${done
+        ? `✓ You've completed <a href="${urls.tournament(pre.id)}">${esc(pre.title)}</a>, which this tournament builds on.`
+        : `Recommended after <a href="${urls.tournament(pre.id)}">${esc(pre.title)}</a>.${isOpen(t)
+          ? ' These holes assume you\'re comfortable with everything there, but you can play them now.' : ''}`}</p>`;
+    }
 
     let actions = '';
     if (open) {
@@ -51,6 +63,7 @@ if (!meta) {
           <h1>${esc(t.title)}</h1>
           <p>${esc(t.description)}</p>
           <div class="chips chips-on-dark">${t.skills.map((k) => `<span class="chip">${esc(k)}</span>`).join('')}</div>
+          ${preNote}
           ${open ? actions : '<p class="soon-note">🔒 This tournament is still being built. It will open here when its holes are ready.</p>'}
         </div>
       </section>
