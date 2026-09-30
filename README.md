@@ -19,6 +19,13 @@ export and import it as JSON from the Locker room.
 | **Par** | The target stroke count. Beat it for a birdie. |
 | **Round** | One play-through of a tournament. Start a new round to chase a better best score. |
 
+## The Driving Range
+
+A LeetCode-style practice area with extra problems on skills you've already learned. A tournament's problems unlock
+when you finish it. Problems are replayable: your best strokes count, struggles come back for review after three
+days, and "rough spots" show the topics to drill. There's also Mixed Bag (a random unsolved problem) and Timed Round
+(3 problems, 30 minutes, with a scorecard).
+
 ## Run locally
 
 ```bash

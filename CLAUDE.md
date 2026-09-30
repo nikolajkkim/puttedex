@@ -38,7 +38,8 @@ at the top of `css/styles.css`. Lesson examples are highlighted on paper, delibe
 - **Python runs in-browser via Pyodide** (planned for the Python tournaments). Load it lazily, only on pages that need
   it; it's large.
 - **Content is data.** Tournaments and holes live in `js/data/`. Pages never hard-code a tournament or a hole.
-- **Progress lives in `localStorage`** (key `puttedex.progress`, module `js/progress.js`) with JSON export and
+- **Progress lives in `localStorage`** (key `puttedex.progress`, module `js/progress.js`, tournaments and the
+  Driving Range alike) with JSON export and
   import on the schedule page. If the stored shape changes, bump the version and handle the old one in `migrate()`.
   Never silently drop a learner's progress. Old versions must keep loading, and old export files must keep importing.
 - **Hole and tournament `id`s are permanent.** Progress is keyed by `"<tournamentId>/<holeId>"`, so renaming an id
@@ -64,7 +65,8 @@ exists only for the scripts. `npm test` runs in CI; `test:layout` is local only 
 ## Architecture
 
 Navigation has two levels above the problem view: **tour schedule → tournament page → hole**. There is no separate
-course map page. The course map is a section of the tournament page.
+course map page. The course map is a section of the tournament page. The **Driving Range** (header link) is a
+separate practice area: **range home → range problem**.
 
 Pages (each an HTML shell plus a module in `js/pages/`):
 
@@ -73,6 +75,8 @@ Pages (each an HTML shell plus a module in `js/pages/`):
 | `index.html` | `schedule.js` | Tour schedule roadmap, hero call to action, locker room (export/import/reset) |
 | `tournament.html?t=<id>` | `tournament.js` | Details (description, skills, stat tiles: holes open, par, progress, this round, best round), the 18-hole scorecard, then the course map of all 18 slots (`#holes`). Clicking a hole opens the problem view. |
 | `hole.html?t=<id>&h=<n>` | `hole.js` | Problem view: sidebar hole list (jump between holes), then problem + yardage book, then editor + feedback + results. `n` is 1-based. Breadcrumb: Schedule › tournament › Hole n. |
+| `range.html` | `range.js` | Driving Range home: Mixed Bag / Timed Round / Drill buttons, a live round or the last round's scorecard (`#timed-round`), rough spots, filters (tournament, topic, difficulty, status, search; kept in the URL), and the problem table |
+| `practice.html?p=<tournament>/<id>` | `practice.js` | Range problem view: task, tags, stats, optional caddie tip, pro's line (locked until solved or 3 misses), yardage book, prev/next within the range's filters (carried in the URL); timed-round banner |
 
 `course.html` is not a page. It's a redirect stub that keeps old links working: `course.html?t=<id>` (the former
 course map) goes to `tournament.html?t=<id>#holes`, and v1's `course.html?hole=<id>&shot=<n>` goes to the hole.
@@ -86,12 +90,19 @@ course map) goes to `tournament.html?t=<id>#holes`, and v1's `course.html?hole=<
   hard-coded. It compares values (not column names) with float tolerance. **Column order is graded**, and row order
   is graded only when the hole sets `orderMatters: true`. Both modules are DOM-free and take the `SQL` object as a
   parameter, so the Node tests exercise exactly the browser code path.
-- `js/progress.js`: holes' strokes/hints/solved/draft code, per-tournament archived rounds, `roundSummary()`,
-  `bestRound()`, `startNewRound()`, and `migrate()` for v1 → v2 (v1 said "shots" and used key `puttedex.progress.v1`,
-  which is kept as a backup). `RETIRED_PREFILLS` drops drafts that equal code the first version prefilled.
+- `js/progress.js` (storage, v3): holes' strokes/hints/solved/draft code, per-tournament archived rounds,
+  `roundSummary()`, `bestRound()`, `startNewRound()`, range records (`getRangeRecord` / `updateRangeRecord`, fields
+  in `blankRange()`), and `migrate()`: v1 ("shots", key `puttedex.progress.v1`, kept as a backup) and v2 (no range)
+  still load and import. `RETIRED_PREFILLS` drops drafts that equal code the first version prefilled.
+- `js/range.js`: the Driving Range's rules. It loads problems, then handles unlock state, status and the review
+  queue, `recordSubmit`/`recordHint`, the solution unlock, struggle scores, filters and prev/next, Mixed Bag / Drill /
+  timed-round picks, and timed-round state. Every function takes `now` (and `rng` where random) so tests can simulate
+  time. Settings live in `js/data/range-config.js`. Timed-round state is a per-browser convenience in
+  `localStorage['puttedex.timedRound']`, not part of exported progress.
 - `js/ui/`: `dom.js` (`esc`: use it for every learner- or data-derived string put into HTML; icons; `crumbs`;
-  `scoreMark`), `scorecard.js` (the 18-hole card), `course-map.js` (the 18 hole slots on the tournament page), and
-  `sql-editor.js` (CodeMirror setup and read-only highlighting).
+  `scoreMark`), `scorecard.js` (the 18-hole card), `course-map.js` (the 18 hole slots on the tournament page),
+  `workspace.js` (editor card, results table, feedback, yardage book, and `execute`, shared by the hole and range
+  problem views), and `sql-editor.js` (CodeMirror setup and read-only highlighting).
 - `vendor/sql.js/package.json` marks that folder CommonJS so Node can `require()` the UMD build while the root package
   is `"type": "module"`.
 
@@ -155,6 +166,52 @@ most 18. The fields are documented at the top of that file. Keep the difficulty 
 - Lesson examples should use a different table or column than the task, so they teach without giving the answer.
 
 Then run `npm test`. Also run `npm run test:layout` if you touched layout, and look at the hole at 1440, 1280, and 390px.
+The graded-SQL rules above live in `tests/sql-checks.mjs` and apply to holes and range problems alike.
+
+## The Driving Range
+
+Extra, replayable practice problems per tournament, on skills already learned.
+
+### How unlocking works
+
+A tournament's range problems unlock according to **`RANGE_UNLOCK` in `js/data/range-config.js`**, the one place to
+change it:
+
+- `{ rule: 'tournament-complete' }` (current): every open hole of the tournament holed out, in the current round or
+  any finished round. Starting a new round never re-locks the range.
+- `{ rule: 'holes-done', holes: N }`: at least N holes holed out in the current round (or any finished round).
+- `{ rule: 'always' }`: no lock.
+
+Locked problems stay in the list, with the reason ("Finish SQL Basics to unlock (3/18 holes)"), and their direct links
+show the same message. `unlockState()` in `js/range.js` implements the rules and writes the messages.
+
+The same config file holds the other range rules:
+- `SOLUTION_UNLOCK_FAILED_ATTEMPTS`: the pro's line shows after a solve or this many misses.
+- `REVIEW`: a solve is flagged when it took more than par + 2 strokes, or when it used the caddie tip and that makes
+  3 tipped plays since the last clean solve. A flagged problem returns as "needs review" 3 days later. A clean
+  re-solve clears the flag.
+- `STRUGGLE_WEIGHTS` and `ROUGH_SPOTS`: the per-topic struggle score (failed attempts, tips, strokes over par on the
+  last solve) and how many weakest topics to drill.
+- `TIMED_ROUND`: problems per round, minutes, and what an unsolved problem scores.
+- `DIFFICULTY` (par → Easy/Medium/Hard) and `TOPICS`, the allowed tags.
+
+### How to add range problems
+
+1. Append problems to `js/data/range/<rangeSet>.js`, or, for a tournament without a range yet, create that file and
+   set `rangeSet: '<name>'` on its entry in `js/data/tournaments.js`. The tournament must be open (it's what
+   unlocks the range) and use the SQL engine. Problems query the tournament's dataset.
+2. Fields (documented at the top of `js/data/range/sql-basics.js`): `id` (permanent, kebab-case), `title`, `par`
+   (3 easy, 4 medium, 5 hard), `tags` (from `TOPICS`; add a new topic there first), `task`, `solution`, `hint`,
+   optional `orderMatters`, `alternatives`, and `mistakes`. There's no `lesson`, no `interview`, and no starter
+   code.
+3. Every rule from "How to add a hole" about the task, the solution, alternatives, and mistakes applies. On top of
+   that, `tests/range-content.test.mjs` rejects a problem whose expected answer is identical to any tournament hole
+   on the same dataset. Range problems must be new practice, not repeats.
+4. Only use skills the tournament (and the ones before it) taught.
+5. Run `npm test`.
+
+Range progress is stored per problem under `range` in progress v3 and included in export/import. Never rename a
+problem's `id` once shipped.
 
 ## Deployment
 
