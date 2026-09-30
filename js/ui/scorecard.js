@@ -55,6 +55,6 @@ export function renderScorecard(tournament) {
       <span><span class="score-mark under">1</span>Under par</span>
       <span><span class="score-mark">2</span>Par</span>
       <span><span class="score-mark over">3</span>Over par</span>
-      <span>${LOCK} Hole coming soon</span>
+      ${tournament.holes.length < HOLES_PER_TOURNAMENT ? `<span>${LOCK} Hole coming soon</span>` : ''}
     </div>`;
 }

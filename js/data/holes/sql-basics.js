@@ -1,4 +1,6 @@
 // Holes for the "SQL Basics" tournament, in play order (hole 1 first).
+// Difficulty ramp: holes 1-6 teach one concept each, 7-12 combine concepts, and 13-18 are interview-style questions
+// that combine several.
 // A tournament has up to 18 holes; list only the ones that exist. Missing slots show as "coming soon".
 //
 // Hole fields:
@@ -297,6 +299,370 @@ ORDER BY avg_over_par DESC, c.name ASC;`,
          ON c.course_id = r.course_id GROUP BY c.name ORDER BY o ASC, c.name;`,
       `SELECT c.name, COUNT(*), ROUND(AVG(r.score), 1) AS o FROM rounds r JOIN courses c
          ON c.course_id = r.course_id GROUP BY c.name ORDER BY o DESC, c.name;`,
+    ],
+  },
+  {
+    id: 'in-between',
+    title: 'Weather delay: IN and BETWEEN',
+    par: 3,
+    lesson: `
+      <p>Two shortcuts make filters easier to read. <code>IN</code> matches any value in a list, and <code>BETWEEN</code>
+      matches a range, <em>including both ends</em>:</p>
+      <pre>SELECT name, yardage FROM courses
+WHERE country IN ('USA', 'Japan')
+  AND yardage BETWEEN 6500 AND 7000;</pre>
+      <p>Dates here are stored as ISO text (<code>'2026-05-29'</code>). That format sorts in date order, so comparisons
+      and <code>BETWEEN</code> work on it directly. Just make sure the upper bound really is the last day you want.</p>`,
+    interview: `<code>IN</code> is shorthand for several <code>OR</code>s, so it sidesteps the precedence bug from hole 4.
+      For date ranges, many interviewers prefer a half-open range
+      (<code>played_on &gt;= '2026-05-01' AND played_on &lt; '2026-07-01'</code>). It can't miss the last day, even when
+      the column also stores a time of day.`,
+    yardage: `<code>rounds.played_on</code> is ISO text (<code>YYYY-MM-DD</code>). <code>rounds.weather</code> is one of
+      <code>'Sunny'</code>, <code>'Overcast'</code>, <code>'Windy'</code>, or <code>'Rain'</code>.`,
+    task: `Find the rounds played in <strong>May or June 2026</strong> in <strong>Windy or Rain</strong> weather.
+      Return <code>round_id</code>, <code>played_on</code>, and <code>weather</code>, in that order.`,
+    solution: `SELECT round_id, played_on, weather
+FROM rounds
+WHERE played_on BETWEEN '2026-05-01' AND '2026-06-30'
+  AND weather IN ('Windy', 'Rain');`,
+    hint: "Combine <code>played_on BETWEEN '2026-05-01' AND '2026-06-30'</code> with <code>weather IN ('Windy', 'Rain')</code> using <code>AND</code>.",
+    alternatives: [
+      `SELECT round_id, played_on, weather FROM rounds
+         WHERE played_on >= '2026-05-01' AND played_on < '2026-07-01' AND (weather = 'Windy' OR weather = 'Rain');`,
+      `SELECT round_id, played_on, weather FROM rounds
+         WHERE substr(played_on, 1, 7) IN ('2026-05', '2026-06') AND weather IN ('Rain', 'Windy');`,
+    ],
+    mistakes: [
+      `SELECT round_id, played_on, weather FROM rounds
+         WHERE played_on BETWEEN '2026-05-01' AND '2026-06-01' AND weather IN ('Windy', 'Rain');`,
+      `SELECT round_id, played_on, weather FROM rounds
+         WHERE played_on BETWEEN '2026-05-01' AND '2026-06-30' AND weather = 'Windy' OR weather = 'Rain';`,
+      `SELECT round_id, played_on, weather FROM rounds
+         WHERE played_on BETWEEN '2026-05-01' AND '2026-06-30' AND weather IN ('Windy', 'Rainy');`,
+    ],
+  },
+  {
+    id: 'case-when',
+    title: 'Reading the conditions: CASE WHEN',
+    par: 3,
+    lesson: `
+      <p><code>CASE</code> is SQL's if/else. It returns a value for each row:</p>
+      <pre>SELECT name,
+  CASE WHEN yardage &gt;= 7000 THEN 'Long' ELSE 'Standard' END AS length
+FROM courses;</pre>
+      <p>Put a <code>CASE</code> inside an aggregate and you get <strong>conditional aggregation</strong>: counting only
+      the rows that meet a condition, per group, in a single pass:</p>
+      <pre>SELECT country,
+  SUM(CASE WHEN par = 72 THEN 1 ELSE 0 END) AS par_72_courses
+FROM courses
+GROUP BY country;</pre>`,
+    interview: `Conditional aggregation is one of the most-used interview patterns ("orders per status", "share of users
+      who converted"). A classic trap: <code>COUNT(CASE WHEN … THEN 1 ELSE 0 END)</code> counts <em>every</em> row,
+      because 0 isn't NULL. Use <code>SUM(… ELSE 0 END)</code> or <code>COUNT(… THEN 1 END)</code>, with no ELSE.`,
+    yardage: `<code>rounds.weather</code> and <code>rounds.score</code>. Every weather condition has at least one round.`,
+    task: `For each <code>weather</code> condition, return three columns in this order: the weather, the number of rounds
+      played in it, and how many of those rounds had a score <strong>under 75</strong>.`,
+    solution: `SELECT
+  weather,
+  COUNT(*) AS rounds_played,
+  SUM(CASE WHEN score < 75 THEN 1 ELSE 0 END) AS rounds_under_75
+FROM rounds
+GROUP BY weather;`,
+    hint: '<code>GROUP BY weather</code>, then <code>COUNT(*)</code> and <code>SUM(CASE WHEN score &lt; 75 THEN 1 ELSE 0 END)</code>.',
+    alternatives: [
+      'SELECT weather, COUNT(*), COUNT(CASE WHEN score < 75 THEN 1 END) FROM rounds GROUP BY weather;',
+      'SELECT weather, COUNT(round_id), SUM(score < 75) FROM rounds GROUP BY weather ORDER BY weather DESC;',
+    ],
+    mistakes: [
+      'SELECT weather, COUNT(*), COUNT(CASE WHEN score < 75 THEN 1 ELSE 0 END) FROM rounds GROUP BY weather;',
+      'SELECT weather, COUNT(*), COUNT(*) FROM rounds WHERE score < 75 GROUP BY weather;',
+      'SELECT weather, COUNT(*), SUM(CASE WHEN score <= 75 THEN 1 ELSE 0 END) FROM rounds GROUP BY weather;',
+    ],
+  },
+  {
+    id: 'never-broke-75',
+    title: 'Never broke 75: the "never" question',
+    par: 3,
+    lesson: `
+      <p>Interview questions often ask about something that <strong>never</strong> (or <strong>always</strong>) happened
+      within a group: "customers who never returned an item", "players who never broke 75". <code>WHERE</code> can't
+      answer that, because it looks at one row at a time. Compute a fact about the whole group, then filter on it with
+      <code>HAVING</code>:</p>
+      <pre>-- Courses that have never had a round in the rain
+SELECT course_id
+FROM rounds
+GROUP BY course_id
+HAVING SUM(CASE WHEN weather = 'Rain' THEN 1 ELSE 0 END) = 0;</pre>
+      <p>Often there's an even shorter way to say it. "Never under 75" means "the lowest score is 75 or more":
+      <code>MIN(score) &gt;= 75</code>.</p>`,
+    interview: `Translate the words into an aggregate out loud: "never below 75" means "minimum is at least 75", and
+      "always under par" means "maximum is under par". Then check the boundary: does a 75 count as breaking 75? (No.
+      Breaking 75 means 74 or better.) Interviewers listen for exactly that.`,
+    yardage: `Names are in <code>players</code>, scores in <code>rounds</code>. Join them on <code>player_id</code>.`,
+    task: `The club captain wants the players who have <strong>never</strong> shot a round <strong>under 75</strong>.
+      Return each such player's <code>name</code> and their best (lowest) score, in that order.`,
+    solution: `SELECT
+  p.name,
+  MIN(r.score) AS best_score
+FROM players AS p
+JOIN rounds AS r ON r.player_id = p.player_id
+GROUP BY p.player_id, p.name
+HAVING MIN(r.score) >= 75;`,
+    hint: 'Join <code>players</code> to <code>rounds</code>, <code>GROUP BY</code> the player, and keep the groups where '
+      + '<code>HAVING MIN(r.score) &gt;= 75</code>.',
+    alternatives: [
+      `SELECT p.name, MIN(r.score) FROM rounds r JOIN players p ON p.player_id = r.player_id
+         GROUP BY p.name HAVING SUM(CASE WHEN r.score < 75 THEN 1 ELSE 0 END) = 0;`,
+      `SELECT p.name, MIN(r.score) AS best FROM players p JOIN rounds r USING (player_id)
+         GROUP BY p.player_id HAVING best > 74 ORDER BY best;`,
+    ],
+    mistakes: [
+      'SELECT p.name, MIN(r.score) FROM players p JOIN rounds r ON r.player_id = p.player_id WHERE r.score >= 75 GROUP BY p.name;',
+      'SELECT p.name, MIN(r.score) FROM players p JOIN rounds r ON r.player_id = p.player_id GROUP BY p.name HAVING MIN(r.score) > 75;',
+      'SELECT p.name, MIN(r.score) FROM players p JOIN rounds r ON r.player_id = p.player_id GROUP BY p.name HAVING MAX(r.score) >= 75;',
+    ],
+  },
+  {
+    id: 'count-distinct',
+    title: 'Course collector: COUNT(DISTINCT)',
+    par: 3,
+    lesson: `
+      <p><code>COUNT(*)</code> counts rows. <code>COUNT(DISTINCT column)</code> counts the different values in a column,
+      ignoring repeats (and NULLs):</p>
+      <pre>SELECT course_id,
+  COUNT(*) AS rounds,
+  COUNT(DISTINCT player_id) AS different_players
+FROM rounds
+GROUP BY course_id;</pre>
+      <p>The two numbers answer different questions. A course with 13 rounds may have seen far fewer than 13 different
+      players.</p>`,
+    interview: `"How many unique users…?" is one of the most common interview metrics: daily active users, unique
+      buyers, repeat customers. <code>COUNT(*)</code> where they asked for unique gives a number that looks plausible
+      and is wrong. Before you count, ask yourself: rows, or distinct things?`,
+    yardage: `<code>rounds.course_id</code> repeats whenever a player returns to a course. Names are in
+      <code>players</code>.`,
+    task: `Which players are true course collectors? Find the players who have played <strong>at least 4 different
+      courses</strong>. Return three columns in this order: <code>name</code>, the number of different courses they've
+      played, and their total number of rounds.`,
+    solution: `SELECT
+  p.name,
+  COUNT(DISTINCT r.course_id) AS courses_played,
+  COUNT(*) AS rounds_played
+FROM players AS p
+JOIN rounds AS r ON r.player_id = p.player_id
+GROUP BY p.player_id, p.name
+HAVING COUNT(DISTINCT r.course_id) >= 4;`,
+    hint: 'After joining and grouping by player, use <code>COUNT(DISTINCT r.course_id)</code> in the SELECT list '
+      + 'and again in <code>HAVING … &gt;= 4</code>.',
+    alternatives: [
+      `SELECT p.name, COUNT(DISTINCT r.course_id) AS courses, COUNT(r.round_id) FROM rounds r
+         JOIN players p ON p.player_id = r.player_id GROUP BY p.name HAVING courses > 3;`,
+    ],
+    mistakes: [
+      `SELECT p.name, COUNT(r.course_id), COUNT(*) FROM players p JOIN rounds r ON r.player_id = p.player_id
+         GROUP BY p.name HAVING COUNT(r.course_id) >= 4;`,
+      `SELECT p.name, COUNT(DISTINCT r.course_id), COUNT(*) FROM players p JOIN rounds r ON r.player_id = p.player_id
+         GROUP BY p.name HAVING COUNT(*) >= 4;`,
+    ],
+  },
+  {
+    id: 'by-month',
+    title: 'Season form: grouping by month',
+    par: 3,
+    orderMatters: true,
+    lesson: `
+      <p>Time-series questions usually start by putting dates into buckets. With ISO-text dates, <code>strftime</code>
+      formats a date however you need: <code>strftime('%Y', played_on)</code> is the year, and
+      <code>strftime('%Y-%m', played_on)</code> is year and month. <code>substr(played_on, 1, 7)</code> does the same
+      job by taking the first seven characters.</p>
+      <pre>SELECT strftime('%Y', played_on) AS year, COUNT(*) AS rounds
+FROM rounds
+GROUP BY year;</pre>
+      <p>As above, you can <code>GROUP BY</code> and <code>ORDER BY</code> an alias from the SELECT list.</p>`,
+    interview: `Monthly (or weekly, or daily) metrics are everywhere in product interviews: rounds per month, revenue per
+      week, active users per day. Group by <strong>year and month</strong>, not month alone, or March 2025 and March 2026
+      land in the same bucket. Date functions differ between databases (<code>DATE_TRUNC</code> in Postgres,
+      <code>strftime</code> in SQLite), so name the one you'd use.`,
+    yardage: `<code>rounds.played_on</code> is ISO text, such as <code>'2026-05-29'</code>. The rounds run from March to
+      August 2026.`,
+    task: `Show the season month by month. For each month that has rounds, return three columns in this order: the month
+      as <code>YYYY-MM</code> text (like <code>2026-05</code>), the number of rounds, and the average score
+      <strong>rounded to 1 decimal</strong>. Sort by month, <strong>earliest first</strong>.`,
+    solution: `SELECT
+  strftime('%Y-%m', played_on) AS month,
+  COUNT(*) AS rounds_played,
+  ROUND(AVG(score), 1) AS avg_score
+FROM rounds
+GROUP BY month
+ORDER BY month ASC;`,
+    hint: "<code>strftime('%Y-%m', played_on) AS month</code>, then <code>GROUP BY month</code> and <code>ORDER BY month</code>.",
+    alternatives: [
+      'SELECT substr(played_on, 1, 7), COUNT(*), ROUND(AVG(score), 1) FROM rounds GROUP BY 1 ORDER BY 1;',
+    ],
+    mistakes: [
+      "SELECT strftime('%m', played_on) AS m, COUNT(*), ROUND(AVG(score), 1) FROM rounds GROUP BY m ORDER BY m;",
+      "SELECT strftime('%Y-%m', played_on) AS m, COUNT(*), ROUND(AVG(score), 1) FROM rounds GROUP BY m ORDER BY m DESC;",
+      "SELECT strftime('%Y-%m', played_on) AS m, COUNT(*), ROUND(AVG(score), 1) FROM rounds GROUP BY m ORDER BY COUNT(*) DESC;",
+    ],
+  },
+  {
+    id: 'percentages',
+    title: 'Putting clinic: percentages',
+    par: 3,
+    lesson: `
+      <p>A percentage is a conditional count divided by a total. You already have both pieces:</p>
+      <pre>SELECT
+  ROUND(100.0 * SUM(CASE WHEN is_pro = 1 THEN 1 ELSE 0 END) / COUNT(*), 1) AS pct_pros
+FROM players;</pre>
+      <p>Notice the <code>100.0</code>. In SQLite (and Postgres, and SQL Server), dividing an integer by an integer
+      <strong>throws away the fraction</strong>: <code>7 / 2</code> is <code>3</code>. Multiplying by <code>100.0</code>
+      first makes the arithmetic decimal.</p>
+      <p>You can also <code>GROUP BY</code> a <code>CASE</code> expression to make your own categories.</p>`,
+    interview: `Integer division is the most common silent bug in SQL interviews. <code>SUM(x) / COUNT(*)</code> returns 0
+      for any rate under 100%, and interviewers watch for it. Multiply by <code>100.0</code> (or <code>CAST(… AS
+      REAL)</code>) before dividing, and say why you did it.`,
+    yardage: `<code>players.is_pro</code> is 1 for professionals and 0 for amateurs. <code>rounds.putts</code> is per round.
+      Join them on <code>player_id</code>.`,
+    task: `Does experience show on the greens? Split all rounds by whether the player is a professional. Return three
+      columns in this order: the text <code>'Pro'</code> or <code>'Amateur'</code> (exactly), the number of rounds, and
+      the <strong>percentage</strong> of those rounds with <strong>28 putts or fewer</strong>, rounded to 1 decimal
+      (like <code>12.5</code>, not <code>0.125</code>).`,
+    solution: `SELECT
+  CASE WHEN p.is_pro = 1 THEN 'Pro' ELSE 'Amateur' END AS player_type,
+  COUNT(*) AS rounds_played,
+  ROUND(100.0 * SUM(CASE WHEN r.putts <= 28 THEN 1 ELSE 0 END) / COUNT(*), 1) AS pct_28_putts_or_fewer
+FROM rounds AS r
+JOIN players AS p ON p.player_id = r.player_id
+GROUP BY player_type;`,
+    hint: "Group by <code>CASE WHEN p.is_pro = 1 THEN 'Pro' ELSE 'Amateur' END</code>, and compute "
+      + '<code>ROUND(100.0 * SUM(CASE WHEN r.putts &lt;= 28 THEN 1 ELSE 0 END) / COUNT(*), 1)</code>.',
+    alternatives: [
+      `SELECT CASE p.is_pro WHEN 1 THEN 'Pro' ELSE 'Amateur' END, COUNT(*),
+         ROUND(AVG(CASE WHEN r.putts <= 28 THEN 100.0 ELSE 0 END), 1)
+       FROM rounds r JOIN players p ON p.player_id = r.player_id GROUP BY p.is_pro;`,
+      `SELECT IIF(p.is_pro, 'Pro', 'Amateur') AS t, COUNT(*),
+         ROUND(CAST(SUM(r.putts <= 28) AS REAL) / COUNT(*) * 100, 1)
+       FROM rounds r JOIN players p USING (player_id) GROUP BY t;`,
+    ],
+    mistakes: [
+      `SELECT CASE WHEN p.is_pro = 1 THEN 'Pro' ELSE 'Amateur' END AS t, COUNT(*),
+         100 * SUM(CASE WHEN r.putts <= 28 THEN 1 ELSE 0 END) / COUNT(*)
+       FROM rounds r JOIN players p ON p.player_id = r.player_id GROUP BY t;`,
+      `SELECT CASE WHEN p.is_pro = 1 THEN 'Pro' ELSE 'Amateur' END AS t, COUNT(*),
+         ROUND(1.0 * SUM(CASE WHEN r.putts <= 28 THEN 1 ELSE 0 END) / COUNT(*), 1)
+       FROM rounds r JOIN players p ON p.player_id = r.player_id GROUP BY t;`,
+      `SELECT CASE WHEN p.is_pro = 1 THEN 'Pro' ELSE 'Amateur' END AS t, COUNT(*),
+         ROUND(100.0 * SUM(CASE WHEN r.putts < 28 THEN 1 ELSE 0 END) / COUNT(*), 1)
+       FROM rounds r JOIN players p ON p.player_id = r.player_id GROUP BY t;`,
+    ],
+  },
+  {
+    id: 'home-soil',
+    title: 'Home soil: joining three tables',
+    par: 4,
+    lesson: `
+      <p>One <code>JOIN</code> connects two tables, and you can keep chaining them. Each <code>JOIN</code> brings in one
+      more table with its own <code>ON</code> condition:</p>
+      <pre>SELECT
+  r.round_id,
+  p.name AS player,
+  c.name AS course
+FROM rounds AS r
+JOIN players AS p ON p.player_id = r.player_id
+JOIN courses AS c ON c.course_id = r.course_id;</pre>
+      <p>Once the tables are lined up, a condition can compare columns from different tables. Aliases matter here:
+      <code>players</code> and <code>courses</code> both have <code>name</code> and <code>country</code> columns.</p>`,
+    interview: `When a question compares two things ("orders shipped to the customer's home state", "rounds in the
+      player's home country"), join everything onto the fact table first, then compare columns. Don't filter with
+      <code>WHERE</code> before counting: players with zero home rounds would vanish from your answer, and "zero" is
+      often the interesting result.`,
+    yardage: `<code>players.country</code> and <code>courses.country</code> use the same names (like <code>'USA'</code>
+      and <code>'Scotland'</code>). <code>rounds</code> links a player to a course.`,
+    task: `Do players play better at home? First, count it. For <strong>every</strong> player, return three columns in
+      this order: <code>name</code>, the number of rounds they played at a course in <strong>their own country</strong>,
+      and the number they played <strong>abroad</strong>. Players with no home rounds must still appear, with 0.`,
+    solution: `SELECT
+  p.name,
+  SUM(CASE WHEN c.country = p.country THEN 1 ELSE 0 END) AS home_rounds,
+  SUM(CASE WHEN c.country <> p.country THEN 1 ELSE 0 END) AS away_rounds
+FROM rounds AS r
+JOIN players AS p ON p.player_id = r.player_id
+JOIN courses AS c ON c.course_id = r.course_id
+GROUP BY p.player_id, p.name;`,
+    hint: 'Join <code>rounds</code> to both <code>players</code> and <code>courses</code>, <code>GROUP BY</code> the player, '
+      + 'and use <code>SUM(CASE WHEN c.country = p.country THEN 1 ELSE 0 END)</code> for home (and the opposite for abroad).',
+    alternatives: [
+      `SELECT p.name, SUM(c.country = p.country), COUNT(*) - SUM(c.country = p.country)
+       FROM players p JOIN rounds r ON r.player_id = p.player_id JOIN courses c ON c.course_id = r.course_id
+       GROUP BY p.name;`,
+    ],
+    mistakes: [
+      `SELECT p.name, COUNT(*), 0 FROM rounds r JOIN players p ON p.player_id = r.player_id
+       JOIN courses c ON c.course_id = r.course_id WHERE c.country = p.country GROUP BY p.name;`,
+      `SELECT p.name, SUM(CASE WHEN c.country = p.country THEN 1 ELSE 0 END), SUM(CASE WHEN c.country <> p.country THEN 1 ELSE 0 END)
+       FROM rounds r JOIN players p ON p.player_id = r.player_id JOIN courses c ON c.course_id = r.player_id GROUP BY p.name;`,
+      `SELECT p.name, SUM(CASE WHEN c.country <> p.country THEN 1 ELSE 0 END), SUM(CASE WHEN c.country = p.country THEN 1 ELSE 0 END)
+       FROM rounds r JOIN players p ON p.player_id = r.player_id JOIN courses c ON c.course_id = r.course_id GROUP BY p.name;`,
+    ],
+  },
+  {
+    id: 'player-of-the-year',
+    title: 'Player of the year: the final leaderboard',
+    par: 4,
+    orderMatters: true,
+    lesson: `
+      <p>The last hole puts the whole round together. There's no new syntax, just the order a query actually runs in:</p>
+      <ol>
+        <li><code>FROM</code> and <code>JOIN</code>: line up the tables</li>
+        <li><code>WHERE</code>: drop the rows you don't want</li>
+        <li><code>GROUP BY</code>: form the groups</li>
+        <li><code>HAVING</code>: drop the groups you don't want</li>
+        <li><code>SELECT</code>: compute the output columns</li>
+        <li><code>ORDER BY</code> and <code>LIMIT</code>: sort and trim</li>
+      </ol>
+      <p>That order explains the rules you've met on this course: <code>WHERE</code> can't see aggregates, and
+      <code>ORDER BY</code> can use a <code>SELECT</code> alias.</p>`,
+    interview: `For a multi-part question, talk through that order before you type: "I'll join rounds to courses to get
+      par, group by player, keep players with at least four rounds, then sort." Interviewers grade how you break the
+      problem down as much as the final query. Say how you're handling ties, too.`,
+    yardage: `One round's strokes over par is <code>r.score - c.par</code>. Par is in <code>courses</code>, names are in
+      <code>players</code>, and <code>rounds</code> connects them.`,
+    task: `Crown the player of the year. For every player with <strong>at least 4 rounds</strong>, return four columns in
+      this order: <code>name</code>, their number of rounds, their average strokes over par (<code>score - par</code>)
+      <strong>rounded to 1 decimal</strong>, and their best single round relative to par (the lowest
+      <code>score - par</code>). Sort by the rounded average, <strong>best (lowest) first</strong>, then by name A→Z.`,
+    solution: `SELECT
+  p.name,
+  COUNT(*) AS rounds_played,
+  ROUND(AVG(r.score - c.par), 1) AS avg_over_par,
+  MIN(r.score - c.par) AS best_over_par
+FROM rounds AS r
+JOIN players AS p ON p.player_id = r.player_id
+JOIN courses AS c ON c.course_id = r.course_id
+GROUP BY p.player_id, p.name
+HAVING COUNT(*) >= 4
+ORDER BY avg_over_par ASC, p.name ASC;`,
+    hint: 'Join <code>rounds</code> to <code>players</code> and <code>courses</code>. <code>GROUP BY</code> the player with '
+      + '<code>HAVING COUNT(*) &gt;= 4</code>, select <code>ROUND(AVG(r.score - c.par), 1)</code> and '
+      + '<code>MIN(r.score - c.par)</code>, then <code>ORDER BY</code> the average, then name.',
+    alternatives: [
+      `SELECT p.name, COUNT(r.round_id), ROUND(AVG(r.score - c.par), 1), MIN(r.score - c.par)
+       FROM players p JOIN rounds r USING (player_id) JOIN courses c USING (course_id)
+       GROUP BY p.name HAVING COUNT(*) > 3 ORDER BY 3, 1;`,
+    ],
+    mistakes: [
+      `SELECT p.name, COUNT(*), ROUND(AVG(r.score - c.par), 1) AS a, MIN(r.score - c.par)
+       FROM rounds r JOIN players p ON p.player_id = r.player_id JOIN courses c ON c.course_id = r.course_id
+       GROUP BY p.name ORDER BY a, p.name;`,
+      `SELECT p.name, COUNT(*), ROUND(AVG(r.score - c.par), 1) AS a, MIN(r.score - c.par)
+       FROM rounds r JOIN players p ON p.player_id = r.player_id JOIN courses c ON c.course_id = r.course_id
+       GROUP BY p.name HAVING COUNT(*) >= 4 ORDER BY a DESC, p.name;`,
+      `SELECT p.name, COUNT(*), ROUND(AVG(r.score - c.par), 1) AS a, MAX(r.score - c.par)
+       FROM rounds r JOIN players p ON p.player_id = r.player_id JOIN courses c ON c.course_id = r.course_id
+       GROUP BY p.name HAVING COUNT(*) >= 4 ORDER BY a, p.name;`,
+      `SELECT p.name, COUNT(*), ROUND(AVG(r.score), 1) AS a, MIN(r.score - c.par)
+       FROM rounds r JOIN players p ON p.player_id = r.player_id JOIN courses c ON c.course_id = r.course_id
+       GROUP BY p.name HAVING COUNT(*) >= 4 ORDER BY a, p.name;`,
     ],
   },
 ];

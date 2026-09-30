@@ -17,7 +17,7 @@ that goal: favor the patterns interviewers actually ask about over breadth for i
 | Tournament | One concept, e.g. "SQL Basics". Up to 18 holes. Each also has a golf-flavored `event` name. |
 | Hole | One problem inside a tournament. Slots with no hole defined yet show as locked "coming soon". |
 | Course map | The 18 hole slots of one tournament, laid out as a winding course, shown on the tournament page (`#holes`). |
-| Par | Target strokes for a hole (usually 2; 3 for harder ones). A tournament's par is the sum over its defined holes. |
+| Par | Target strokes for a hole: 2 for single-concept holes, 3 for combined ones, 4 for the hardest interview-style holes. A tournament's par is the sum over its defined holes. |
 | Stroke | One **Submit** ("Take the shot"). A caddie tip (hint) is a one-stroke penalty. **Run** ("Practice swing") is free. |
 | Round | One play-through of a tournament's open holes. "Start a new round" archives a completed round (for the best score) and resets the holes. |
 | Scorecard | 18-hole card per tournament (front nine "Out", back nine "In"): birdies circled, bogeys boxed, locked slots greyed. |
@@ -109,7 +109,8 @@ Tournaments whose engine isn't `'sql'` can be listed but not opened yet: `hole.h
 ## How to add a hole
 
 Append an object to the array in `js/data/holes/<holeSet>.js`. Array position is the hole number, and there are at
-most 18. The fields are documented at the top of that file:
+most 18. The fields are documented at the top of that file. Keep the difficulty ramp: holes 1–6 teach one concept each,
+7–12 combine concepts, and 13–18 are interview-style questions that combine several.
 
 - `id` (permanent, kebab-case), `title`, `par`, `lesson` (HTML), `interview` (the "Interview angle" note), `yardage`
   (the yardage book's "For this hole" note: which tables and columns it needs), `task` (HTML), `solution`, `hint`
