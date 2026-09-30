@@ -213,6 +213,66 @@ The same config file holds the other range rules:
 Range progress is stored per problem under `range` in progress v3 and included in export/import. Never rename a
 problem's `id` once shipped.
 
+For bulk additions, follow the standing procedure in "Adding range problems" below.
+
+## Adding range problems
+
+**Standing procedure.** When the user says something like "add range problems for [tournament]", follow every step
+below without asking them to repeat the details. Anything they specify in the request (a different count or par
+split, for example) overrides the defaults here.
+
+1. **Quantity.** Add **25 problems: 8 Par 3, 11 Par 4, 6 Par 5.** Use the user's number or split instead if they give
+   one.
+2. **Format.** Follow the existing range data-file format exactly (see "How to add range problems" above and the
+   header of `js/data/range/sql-basics.js`): `id`, `title`, `task`, `tags`, `par` (the difficulty), a multi-line
+   `solution` with one clause per line, one `hint` (the caddie tip), and the checker: `orderMatters` where row order
+   is graded, plus `alternatives` and `mistakes`. The editor always opens blank, so there's no `starter` field (tests
+   reject one).
+3. **Coverage.** Every topic tag belonging to the tournament must appear in **at least 3 problems**. Mix
+   single-concept problems (mostly Par 3) with multi-concept ones (Par 4–5). A tournament's tags are the entries of
+   `TOPICS` in `js/data/range-config.js` for what it teaches:
+   - SQL Basics: `SELECT`, `WHERE`, `IN / BETWEEN`, `ORDER BY`, `LIMIT`, `DISTINCT`, `NULL`, `Aggregates`,
+     `GROUP BY`, `HAVING`, `COUNT DISTINCT`, `JOIN`, `CASE WHEN`, `Dates`, `Percentages`.
+   - Joins & Subqueries: `JOIN`, `LEFT JOIN`, `Self-join`, `Subqueries`, `EXISTS`, `CASE WHEN`, `CTE`. Earlier tags
+     such as `Dates` may appear too, but don't count toward coverage.
+   - A tournament not listed here: derive its tags from its holes and `skills`, add any new ones to `TOPICS`, add the
+     list to this section, and state it in the report.
+4. **No duplicates.** Before writing anything, read all of the tournament's holes (`js/data/holes/<holeSet>.js`) and
+   all of its existing range problems (`js/data/range/<rangeSet>.js`). Don't reuse or lightly reword any of them:
+   change the question, not just the numbers or names. `tests/range-content.test.mjs` rejects a problem whose
+   expected answer is identical to a hole's, but that only catches exact repeats. Avoiding near-duplicates is on you.
+5. **Difficulty.**
+   - Par 3: one core concept.
+   - Par 4: two concepts combined.
+   - Par 5: an interview-style, multi-step question of the kind asked in real data science internship interviews.
+   Par 5s need **one unambiguous correct answer in the data**: no ties that the task's sort order doesn't break, no
+   rounding that lands on a tie, and no reading of the task that yields a different valid result. Prototype the query
+   and look at the actual rows before writing the task.
+6. **Scope.** Only use skills taught in that tournament or earlier ones in the schedule. Never use concepts from
+   later tournaments. For example, no window functions in Joins & Subqueries problems (tests enforce this for window
+   functions; watch other later-tournament features yourself). This applies to solutions and alternatives.
+7. **Data.** Use the existing seeded dataset (`js/data/datasets/<dataset>.js`). If a problem needs data that doesn't
+   exist, extend the dataset deterministically, then confirm that every existing hole and range problem still passes
+   and that their task wording is still accurate (see "The clubhouse dataset"). Commit dataset changes separately,
+   before the problems.
+8. **Runtime.** SQL tournaments use the SQLite dialect only (sql.js: no `FULL OUTER JOIN`, no `PERCENTILE_CONT`). For
+   Python, pandas, NumPy, statistics, and ML tournaments, use the runner and checker for that subject (compare
+   DataFrames, arrays, or computed values within a tolerance). **That infrastructure doesn't exist yet**: the range
+   problem view and `tests/sql-checks.mjs` only run SQL. Tell the user what's needed and get agreement **before**
+   writing content.
+9. **Verify.**
+   - Run every pro solution through its checker and confirm it passes (`npm test` does this).
+   - For each problem, confirm at least one plausible wrong answer fails. Where `ORDER BY` matters, include a
+     right-rows, wrong-order mistake; from Joins & Subqueries on, join problems also need a wrong-join-type mistake.
+     Tests enforce both.
+   - Confirm the task text matches exactly what the checker expects: same table, same columns in the same order,
+     rounding, and sort order with tie-breaks. Print each problem's task next to its expected columns and row count,
+     and read them side by side.
+   - Confirm tag coverage (step 3) and the par split (step 1) by counting.
+   - Report every problem you had to change during verification, and why.
+10. **Finish.** Make a separate commit per tournament, push to main, and wait for CI to pass. Then give the user a
+    list of the new problems with each one's title, par, and tags, and flag anything you weren't sure about.
+
 ## Deployment
 
 `.github/workflows/pages.yml` runs on every push to `main` (tests only on pull requests). It runs `npm test`, copies
