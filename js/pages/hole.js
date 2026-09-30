@@ -64,7 +64,7 @@ async function start() {
     const locked = HOLES_PER_TOURNAMENT - t.holes.length;
     return `
       <nav class="hole-list" aria-label="Holes in this tournament">
-        <h2><a href="${urls.courseMap(t.id)}">${esc(t.title)}</a></h2>
+        <h2><a href="${urls.holes(t.id)}">${esc(t.title)}</a></h2>
         <p class="hole-total">${total}</p>
         <ol>
           ${t.holes.map((h, i) => {
@@ -105,7 +105,7 @@ async function start() {
 
     app.innerHTML = `
       <div class="player-head">
-        ${crumbs([['Schedule', urls.schedule()], [t.title, urls.tournament(t.id)], ['Course map', urls.courseMap(t.id)], [`Hole ${index + 1}`]])}
+        ${crumbs([['Schedule', urls.schedule()], [t.title, urls.tournament(t.id)], [`Hole ${index + 1}`]])}
       </div>
       <div class="player">
         ${renderHoleList()}

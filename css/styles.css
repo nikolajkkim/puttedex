@@ -163,6 +163,7 @@ kbd {
 
 .page { max-width: 1100px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
 .section + .section { margin-top: 3.5rem; }
+.section[id] { scroll-margin-top: 5rem; } /* clear the sticky top bar when jumped to */
 .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .section-head h2 { font-size: 1.75rem; margin: 0; }
 .section-head p { margin: 0.25rem 0 0; color: var(--muted); }
@@ -383,7 +384,6 @@ a.stop-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgb(20 4
 .scorecard thead th.locked { background: #5d7563; color: #d8e2d5; }
 .lock { font-size: 0.8rem; opacity: 0.7; }
 
-.page-title { font-size: clamp(1.6rem, 4vw, 2.1rem); margin: 0; }
 
 /* ---------- Course map holes ---------- */
 
@@ -663,6 +663,7 @@ pre.pro-line { margin: 0.5rem 0 0; white-space: pre; }
   .stop::after { display: none; }
   .stop-card:not(.hole-slot) { grid-template-columns: auto 1fr; }
   .topbar nav { margin-left: 0; width: 100%; }
+  .section[id] { scroll-margin-top: 7.5rem; } /* the top bar wraps to two rows here */
   .editor-head span { display: none; } /* keyboard shortcuts: not useful on touch screens, and they crowd the bar */
 }
 

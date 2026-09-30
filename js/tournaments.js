@@ -11,7 +11,7 @@ export const isOpen = (t) => Boolean(t.holeSet);
 export const urls = {
   schedule: () => './',
   tournament: (tid) => `tournament.html?t=${encodeURIComponent(tid)}`,
-  courseMap: (tid) => `course.html?t=${encodeURIComponent(tid)}`,
+  holes: (tid) => `tournament.html?t=${encodeURIComponent(tid)}#holes`,
   hole: (tid, number) => `hole.html?t=${encodeURIComponent(tid)}&h=${number}`,
 };
 

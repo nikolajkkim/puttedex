@@ -2,6 +2,7 @@ import { tournamentById, loadTournament, isOpen, urls, HOLES_PER_TOURNAMENT } fr
 import * as progress from '../progress.js';
 import { $, esc, BRAND_SVG, crumbs } from '../ui/dom.js';
 import { renderScorecard } from '../ui/scorecard.js';
+import { renderCourseMap } from '../ui/course-map.js';
 
 $('#brand').insertAdjacentHTML('afterbegin', BRAND_SVG);
 const app = $('#app');
@@ -31,13 +32,13 @@ if (!meta) {
     let actions = '';
     if (open) {
       const primary = s.complete
-        ? `<a class="btn btn-flag" href="${urls.courseMap(t.id)}">Review the course</a>`
+        ? '<a class="btn btn-flag" href="#holes">Review your holes</a>'
         : `<a class="btn btn-flag" href="${urls.hole(t.id, s.nextIndex + 1)}">${
           s.started ? `Continue at hole ${s.nextIndex + 1}` : 'Tee off at hole 1'}</a>`;
       actions = `
         <div class="hero-actions">
           ${primary}
-          <a class="btn btn-ghost" href="${urls.courseMap(t.id)}">View the course map</a>
+          <a class="btn btn-ghost" href="#holes">See all ${HOLES_PER_TOURNAMENT} holes</a>
           ${s.started ? '<button class="btn btn-ghost" id="new-round" type="button">Start a new round</button>' : ''}
         </div>`;
     }
@@ -77,6 +78,19 @@ if (!meta) {
           </div>
           ${renderScorecard(t)}
         </section>
+
+        <section class="section" id="holes" aria-labelledby="holes-title">
+          <div class="section-head">
+            <div>
+              <h2 id="holes-title">The course</h2>
+              <p>${open
+                ? `${t.holes.length} of ${HOLES_PER_TOURNAMENT} holes open. Pick any hole to play it.${
+                  t.holes.length < HOLES_PER_TOURNAMENT ? ' Locked holes are coming soon.' : ''}`
+                : 'Every hole on this course is still being built.'}</p>
+            </div>
+          </div>
+          ${renderCourseMap(t)}
+        </section>
       </div>`;
 
     $('#new-round')?.addEventListener('click', () => {
@@ -90,5 +104,7 @@ if (!meta) {
   };
 
   render();
+  // The page is rendered by script, so the browser can't jump to #holes on load by itself.
+  if (location.hash === '#holes') document.getElementById('holes')?.scrollIntoView();
   window.addEventListener('pageshow', (e) => { if (e.persisted) render(); });
 }

@@ -5,7 +5,7 @@ export const $ = (sel, root = document) => root.querySelector(sel);
 const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const esc = (value) => String(value).replace(/[&<>"']/g, (c) => ESCAPES[c]);
 
-/** The flag-on-a-pin icon used for the brand and the course map. */
+/** The flag-on-a-pin icon used on the course map. */
 export const FLAG_SVG = `
   <svg viewBox="0 0 24 32" aria-hidden="true" class="pin">
     <line x1="4" y1="2" x2="4" y2="30" stroke="#f4efe0" stroke-width="2.2" stroke-linecap="round"/>

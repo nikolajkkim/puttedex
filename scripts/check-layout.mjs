@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os';
 const ROOT = new URL('..', import.meta.url).pathname;
 const WIDTHS = [1440, 1280, 1024, 860, 768, 390, 320];
 const WIDE_QUERY = 'SELECT * FROM rounds r JOIN players p ON p.player_id = r.player_id JOIN courses c ON c.course_id = r.course_id';
-const PAGES = ['index.html', 'tournament.html?t=sql-basics', 'tournament.html?t=pandas', 'course.html?t=sql-basics', 'hole.html?t=sql-basics&h=10'];
+const PAGES = ['index.html', 'tournament.html?t=sql-basics', 'tournament.html?t=pandas', 'hole.html?t=sql-basics&h=10'];
 
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.wasm': 'application/wasm', '.json': 'application/json' };
 const server = createServer(async (req, res) => {

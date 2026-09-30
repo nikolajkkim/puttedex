@@ -16,7 +16,7 @@ that goal: favor the patterns interviewers actually ask about over breadth for i
 | Tour schedule | All tournaments in learning order: the top-level roadmap (`index.html`). |
 | Tournament | One concept, e.g. "SQL Basics". Up to 18 holes. Each also has a golf-flavored `event` name. |
 | Hole | One problem inside a tournament. Slots with no hole defined yet show as locked "coming soon". |
-| Course map | The 18 hole slots of one tournament, laid out as a winding course. |
+| Course map | The 18 hole slots of one tournament, laid out as a winding course, shown on the tournament page (`#holes`). |
 | Par | Target strokes for a hole (usually 2; 3 for harder ones). A tournament's par is the sum over its defined holes. |
 | Stroke | One **Submit** ("Take the shot"). A caddie tip (hint) is a one-stroke penalty. **Run** ("Practice swing") is free. |
 | Round | One play-through of a tournament's open holes. "Start a new round" archives a completed round (for the best score) and resets the holes. |
@@ -63,14 +63,19 @@ exists only for the scripts. `npm test` runs in CI; `test:layout` is local only 
 
 ## Architecture
 
+Navigation has two levels above the problem view: **tour schedule → tournament page → hole**. There is no separate
+course map page. The course map is a section of the tournament page.
+
 Pages (each an HTML shell plus a module in `js/pages/`):
 
 | URL | Module | Shows |
 | --- | --- | --- |
 | `index.html` | `schedule.js` | Tour schedule roadmap, hero call to action, locker room (export/import/reset) |
-| `tournament.html?t=<id>` | `tournament.js` | Description, skills, stat tiles (holes open, par, progress, this round, best round), 18-hole scorecard, new round |
-| `course.html?t=<id>` | `course-map.js` | Course map of the 18 hole slots. Also redirects v1 links `course.html?hole=<id>&shot=<n>` |
-| `hole.html?t=<id>&h=<n>` | `hole.js` | Problem view: hole list, then problem + yardage book, then editor + feedback + results. `n` is 1-based. |
+| `tournament.html?t=<id>` | `tournament.js` | Details (description, skills, stat tiles: holes open, par, progress, this round, best round), the 18-hole scorecard, then the course map of all 18 slots (`#holes`). Clicking a hole opens the problem view. |
+| `hole.html?t=<id>&h=<n>` | `hole.js` | Problem view: sidebar hole list (jump between holes), then problem + yardage book, then editor + feedback + results. `n` is 1-based. Breadcrumb: Schedule › tournament › Hole n. |
+
+`course.html` is not a page. It's a redirect stub that keeps old links working: `course.html?t=<id>` (the former
+course map) goes to `tournament.html?t=<id>#holes`, and v1's `course.html?hole=<id>&shot=<n>` goes to the hole.
 
 - `js/tournaments.js` is the only module that reads `js/data/`. `loadTournament(meta)` resolves a schedule entry into
   `{ ...meta, number, holes, seed, par }` by dynamically importing `js/data/holes/<holeSet>.js` and
@@ -85,7 +90,8 @@ Pages (each an HTML shell plus a module in `js/pages/`):
   `bestRound()`, `startNewRound()`, and `migrate()` for v1 → v2 (v1 said "shots" and used key `puttedex.progress.v1`,
   which is kept as a backup). `RETIRED_PREFILLS` drops drafts that equal code the first version prefilled.
 - `js/ui/`: `dom.js` (`esc`: use it for every learner- or data-derived string put into HTML; icons; `crumbs`;
-  `scoreMark`), `scorecard.js` (the 18-hole card), and `sql-editor.js` (CodeMirror setup and read-only highlighting).
+  `scoreMark`), `scorecard.js` (the 18-hole card), `course-map.js` (the 18 hole slots on the tournament page), and
+  `sql-editor.js` (CodeMirror setup and read-only highlighting).
 - `vendor/sql.js/package.json` marks that folder CommonJS so Node can `require()` the UMD build while the root package
   is `"type": "module"`.
 
@@ -93,7 +99,7 @@ Pages (each an HTML shell plus a module in `js/pages/`):
 
 1. Add an entry to `TOURNAMENTS` in `js/data/tournaments.js`, at its place in the learning order. Fill in `id`,
    `title`, `event`, `blurb`, `description`, `skills`, and `engine`, plus `dataset` for SQL. Set `holeSet: null`. It
-   now appears on the schedule, and its tournament page and course map say "coming soon".
+   now appears on the schedule, and its tournament page says "coming soon", with all 18 hole slots locked.
 2. To open it, create `js/data/holes/<name>.js` (see below) and set `holeSet: '<name>'`.
 3. A new SQL dataset goes in `js/data/datasets/<name>.js` and exports `SEED` (schema + inserts). Keep it deterministic.
 4. Run `npm test`. `tests/tournaments.test.mjs` checks the entry's fields and that it loads.
