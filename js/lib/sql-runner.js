@@ -16,18 +16,26 @@ export function loadSqlJs(initSqlJs, locateFile) {
 
 /**
  * Execute `query` on a brand-new database seeded with `seed`.
- * Returns the LAST result set: { columns: string[], rows: any[][] }.
- * A query that produces no result set (e.g. only an UPDATE) returns empty columns and rows.
+ * Returns the result of the LAST statement that returns columns (a SELECT): { columns: string[], rows: any[][] }.
+ * A SELECT that matches nothing keeps its columns with zero rows. A query with no SELECT at all (e.g. only an
+ * UPDATE) returns empty columns and rows.
  * Throws on SQL errors; the message is SQLite's own.
+ *
+ * Statements are stepped one by one instead of using db.exec(), because exec() drops result sets that have no
+ * rows, which would make "your SELECT matched nothing" indistinguishable from "you didn't write a SELECT".
  */
 export function runQuery(SQL, seed, query) {
   const db = new SQL.Database();
   try {
     db.run(seed);
-    const results = db.exec(query);
-    if (results.length === 0) return { columns: [], rows: [] };
-    const { columns, values } = results[results.length - 1];
-    return { columns, rows: values };
+    let last = { columns: [], rows: [] };
+    for (const stmt of db.iterateStatements(query)) {
+      const columns = stmt.getColumnNames();
+      const rows = [];
+      while (stmt.step()) rows.push(stmt.get());
+      if (columns.length > 0) last = { columns, rows };
+    }
+    return last;
   } finally {
     db.close();
   }

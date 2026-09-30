@@ -36,3 +36,17 @@ test('reports column and row count mismatches', () => {
 test('duplicates count (multiset, not set, comparison)', () => {
   assert.equal(compareResults(r(['a'], [[1], [1], [2]]), r(['a'], [[1], [2], [2]])).ok, false);
 });
+
+test('a SELECT that matches no rows keeps its columns, so the learner hears "0 rows", not "no SELECT"', async () => {
+  const { getSql } = await import('./helpers.mjs');
+  const { runQuery } = await import('../js/lib/sql-runner.js');
+  const SQL = await getSql();
+  const seed = 'CREATE TABLE t (a INTEGER, b TEXT); INSERT INTO t VALUES (1, \'x\'), (2, \'y\');';
+  const empty = runQuery(SQL, seed, 'SELECT a, b FROM t WHERE a > 5;');
+  assert.deepEqual(empty, { columns: ['a', 'b'], rows: [] });
+  assert.match(compareResults(empty, r(['a'], [[1]])).message, /Expected 1 column/);
+  assert.match(compareResults(empty, r(['a', 'b'], [[1, 'x']])).message, /got 0/);
+  assert.deepEqual(runQuery(SQL, seed, "UPDATE t SET b = 'z';"), { columns: [], rows: [] });
+  assert.deepEqual(runQuery(SQL, seed, "SELECT 1 AS one; SELECT b FROM t WHERE a = 2;"), { columns: ['b'], rows: [['y']] });
+  assert.equal(runQuery(SQL, seed, '-- only a comment').columns.length, 0);
+});
