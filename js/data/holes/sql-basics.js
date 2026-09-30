@@ -9,6 +9,7 @@
 //   solution     reference query; the checker compares the learner's result with this one's
 //   hint         the caddie tip (costs a stroke)
 //   orderMatters true when row order is graded (the task must then say how to sort, including ties)
+//   alternatives other correct answers the task allows, which the checker must accept (enforced by tests)
 //   mistakes     realistic wrong answers the checker must reject (enforced by tests)
 
 export default [
@@ -24,10 +25,15 @@ export default [
       SQL keywords aren't case-sensitive, but writing them in UPPERCASE is the convention.</p>
       <p class="tip"><strong>Interview angle:</strong> Interviewers expect you to explore a table before
       answering questions about it. <code>SELECT *</code> is how you take a first look.</p>`,
-    task: `Return <strong>every column</strong> for <strong>every player</strong> in the <code>players</code> table.`,
+    task: `Return <strong>every column</strong> for <strong>every player</strong> in the <code>players</code> table,
+      with the columns in the table's own order.`,
     solution: `SELECT *
 FROM players;`,
     hint: 'The table is called <code>players</code>. Use <code>SELECT * FROM table_name;</code>.',
+    alternatives: [
+      'select * from players',
+      'SELECT player_id, name, country, handicap, is_pro FROM players;',
+    ],
     mistakes: ['SELECT name FROM players;', 'SELECT * FROM courses;'],
   },
   {
@@ -45,6 +51,9 @@ FROM players;`,
     solution: `SELECT name, country
 FROM players;`,
     hint: 'Put the column names between <code>SELECT</code> and <code>FROM</code>: <code>SELECT name, country FROM ...</code>',
+    alternatives: [
+      'SELECT p.name, p.country FROM players AS p;',
+    ],
     mistakes: ['SELECT country, name FROM players;', 'SELECT * FROM players;'],
   },
   {
@@ -57,11 +66,16 @@ FROM players;`,
       <p>Text values go in <strong>single quotes</strong>. Comparisons use <code>=</code>, <code>&lt;&gt;</code>
       (not equal), <code>&lt;</code>, <code>&gt;</code>, <code>&lt;=</code>, and <code>&gt;=</code>.
       In SQLite, <code>=</code> on text is case-sensitive, so <code>'usa'</code> won't match <code>'USA'</code>.</p>`,
-    task: `Return the <code>name</code> and <code>handicap</code> of every player whose country is <strong>Scotland</strong>.`,
+    task: `Return the <code>name</code> and <code>handicap</code> (in that order) of every player whose country is
+      <strong>Scotland</strong>.`,
     solution: `SELECT name, handicap
 FROM players
 WHERE country = 'Scotland';`,
     hint: "Add <code>WHERE country = 'Scotland'</code>. Mind the capital S and the single quotes.",
+    alternatives: [
+      `SELECT name, handicap FROM players WHERE country IN ('Scotland');`,
+      `SELECT name AS player, handicap FROM players WHERE country = 'Scotland' ORDER BY handicap;`,
+    ],
     mistakes: [
       "SELECT name, handicap FROM players WHERE country = 'scotland';",
       "SELECT name, handicap FROM players WHERE country <> 'Scotland';",
@@ -80,12 +94,15 @@ WHERE weather = 'Rain' OR weather = 'Windy';</pre>
       <p class="tip"><strong>Interview angle:</strong> A missing pair of parentheses around an
       <code>OR</code> is one of the most common SQL bugs. Say out loud what each condition filters.</p>`,
     task: `Find the rounds with a <code>score</code> <strong>under 75</strong> and <strong>28 putts or fewer</strong>.
-      Return <code>round_id</code>, <code>score</code>, and <code>putts</code>.`,
+      Return <code>round_id</code>, <code>score</code>, and <code>putts</code>, in that order.`,
     solution: `SELECT round_id, score, putts
 FROM rounds
 WHERE score < 75
   AND putts <= 28;`,
     hint: 'Two conditions that must <em>both</em> hold: <code>score &lt; 75 AND putts &lt;= 28</code>.',
+    alternatives: [
+      'SELECT round_id, score, putts FROM rounds WHERE putts < 29 AND score <= 74;',
+    ],
     mistakes: [
       'SELECT round_id, score, putts FROM rounds WHERE score < 75 OR putts <= 28;',
       'SELECT round_id, score, putts FROM rounds WHERE score < 74 AND putts <= 28;',
@@ -107,12 +124,15 @@ LIMIT 3;</pre>
       <p class="tip"><strong>Interview angle:</strong> "Top N" questions are everywhere. Always ask how ties
       should be handled. Without a tiebreaker, the order of tied rows isn't guaranteed.</p>`,
     task: `Build a leaderboard of the <strong>5 best (lowest) rounds</strong>. Return <code>round_id</code> and
-      <code>score</code>. Sort by <code>score</code> ascending and break ties by <code>round_id</code> ascending.`,
+      <code>score</code>, in that order. Sort by <code>score</code> ascending and break ties by <code>round_id</code> ascending.`,
     solution: `SELECT round_id, score
 FROM rounds
 ORDER BY score ASC, round_id ASC
 LIMIT 5;`,
     hint: 'Use <code>ORDER BY score, round_id</code> and then <code>LIMIT 5</code>. <code>LIMIT</code> always comes last.',
+    alternatives: [
+      'SELECT round_id, score FROM rounds ORDER BY score, round_id LIMIT 5;',
+    ],
     mistakes: [
       'SELECT round_id, score FROM rounds ORDER BY score DESC LIMIT 5;',
       'SELECT round_id, score FROM rounds ORDER BY score, round_id LIMIT 6;',
@@ -133,6 +153,9 @@ LIMIT 5;`,
     solution: `SELECT DISTINCT country
 FROM players;`,
     hint: 'Put <code>DISTINCT</code> right after <code>SELECT</code>.',
+    alternatives: [
+      'SELECT country FROM players GROUP BY country;',
+    ],
     mistakes: ['SELECT country FROM players;', 'SELECT DISTINCT country FROM courses;'],
   },
   {
@@ -157,6 +180,9 @@ SELECT * FROM players WHERE handicap IS NULL;</pre>
 FROM players
 WHERE handicap IS NULL;`,
     hint: '<code>= NULL</code> never matches. Use <code>IS NULL</code>.',
+    alternatives: [
+      'SELECT name FROM players WHERE NOT (handicap IS NOT NULL);',
+    ],
     mistakes: [
       'SELECT name FROM players WHERE handicap IS NOT NULL;',
       'SELECT name FROM players WHERE handicap = 0;',
@@ -185,6 +211,9 @@ WHERE weather = 'Rain';</pre>
   MAX(score) AS worst_score
 FROM rounds;`,
     hint: '<code>SELECT COUNT(*), ROUND(AVG(score), 1), MIN(score), MAX(score) FROM rounds;</code> Adding aliases is good style.',
+    alternatives: [
+      'SELECT COUNT(round_id), ROUND(AVG(score), 1), MIN(score), MAX(score) FROM rounds;',
+    ],
     mistakes: [
       'SELECT COUNT(*), AVG(score), MIN(score), MAX(score) FROM rounds;',
       'SELECT COUNT(*), ROUND(AVG(score), 1), MAX(score), MIN(score) FROM rounds;',
@@ -205,8 +234,8 @@ GROUP BY course_id;</pre>
 HAVING COUNT(*) &gt;= 10;</pre>
       <p class="tip"><strong>Interview angle:</strong> "What's the difference between WHERE and HAVING?" is asked
       constantly. <code>WHERE</code> filters rows before grouping. <code>HAVING</code> filters groups after it.</p>`,
-    task: `For each player who has played <strong>at least 5 rounds</strong>, return their <code>player_id</code>,
-      their number of rounds, and their average score <strong>rounded to 1 decimal</strong>.`,
+    task: `For each player who has played <strong>at least 5 rounds</strong>, return three columns in this order:
+      their <code>player_id</code>, their number of rounds, and their average score <strong>rounded to 1 decimal</strong>.`,
     solution: `SELECT
   player_id,
   COUNT(*) AS rounds_played,
@@ -215,6 +244,9 @@ FROM rounds
 GROUP BY player_id
 HAVING COUNT(*) >= 5;`,
     hint: '<code>GROUP BY player_id</code>, then <code>HAVING COUNT(*) &gt;= 5</code>. The count and average go in the SELECT list.',
+    alternatives: [
+      'SELECT player_id, COUNT(*) AS n, ROUND(AVG(score), 1) FROM rounds GROUP BY player_id HAVING n >= 5 ORDER BY player_id DESC;',
+    ],
     mistakes: [
       'SELECT player_id, COUNT(*), ROUND(AVG(score), 1) FROM rounds GROUP BY player_id HAVING COUNT(*) > 5;',
       'SELECT player_id, COUNT(*), ROUND(AVG(score), 1) FROM rounds GROUP BY player_id;',
@@ -238,8 +270,8 @@ JOIN courses AS c ON c.course_id = r.course_id;</pre>
       <p class="tip"><strong>Interview angle:</strong> JOIN + GROUP BY is the bread and butter of SQL interviews.
       Know that <code>JOIN</code> (inner) drops rows that have no match. <code>LEFT JOIN</code> keeps them. That's the
       next hole.</p>`,
-    task: `Which course plays hardest? For each course, return its <code>name</code>, the number of rounds played there,
-      and the average <strong>strokes over par</strong> (<code>score - par</code>) <strong>rounded to 1 decimal</strong>.
+    task: `Which course plays hardest? For each course, return three columns in this order: its <code>name</code>,
+      the number of rounds played there, and the average <strong>strokes over par</strong> (<code>score - par</code>) <strong>rounded to 1 decimal</strong>.
       Sort by that average, <strong>hardest first</strong>, and break ties by course name A→Z.`,
     solution: `SELECT
   c.name,
@@ -251,6 +283,10 @@ GROUP BY c.course_id, c.name
 ORDER BY avg_over_par DESC, c.name ASC;`,
     hint: 'Join on <code>c.course_id = r.course_id</code>, then <code>GROUP BY c.name</code>. Use '
       + '<code>ROUND(AVG(r.score - c.par), 1)</code> and <code>ORDER BY</code> that expression <code>DESC</code>.',
+    alternatives: [
+      'SELECT c.name, COUNT(*), ROUND(AVG(r.score - c.par), 1) FROM courses c JOIN rounds r ON r.course_id = c.course_id GROUP BY c.name ORDER BY 3 DESC, 1;',
+      'SELECT c.name, COUNT(*) AS n, ROUND(AVG(r.score) - c.par, 1) AS over FROM rounds r INNER JOIN courses c USING (course_id) GROUP BY c.course_id ORDER BY over DESC, c.name;',
+    ],
     mistakes: [
       `SELECT c.name, COUNT(*), ROUND(AVG(r.score - c.par), 1) AS o FROM rounds r JOIN courses c
          ON c.course_id = r.course_id GROUP BY c.name ORDER BY o ASC, c.name;`,

@@ -41,6 +41,11 @@ for (const meta of TOURNAMENTS.filter((t) => isOpen(t) && t.engine === 'sql')) {
 
       assert.ok(grade(hole.solution).ok, 'solution passes');
       assert.equal(grade('').ok, false, 'a blank editor does not pass');
+      assert.ok(hole.alternatives?.length > 0, 'declares at least one alternative correct answer');
+      for (const other of hole.alternatives) {
+        const verdict = grade(other);
+        assert.ok(verdict.ok, `alternative is accepted: ${other}\n  checker said: ${verdict.message}`);
+      }
       assert.ok(hole.mistakes?.length > 0, 'declares at least one common mistake');
       for (const wrong of hole.mistakes) {
         assert.equal(grade(wrong).ok, false, `mistake is rejected: ${wrong}`);
