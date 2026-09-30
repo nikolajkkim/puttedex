@@ -17,7 +17,8 @@ for (const meta of TOURNAMENTS.filter((t) => isOpen(t) && t.engine === 'sql')) {
   for (const [i, hole] of t.holes.entries()) {
     test(`${t.id} hole ${i + 1} (${hole.id})`, async () => {
       const SQL = await getSql();
-      for (const field of ['title', 'lesson', 'task', 'solution', 'hint']) assert.ok(hole[field], `has ${field}`);
+      for (const field of ['title', 'lesson', 'interview', 'yardage', 'task', 'solution', 'hint']) assert.ok(hole[field], `has ${field}`);
+      assert.doesNotMatch(hole.lesson, /Interview angle/, 'the interview angle belongs in `interview`, not the lesson');
       assert.ok(!('starter' in hole), 'no prefilled starter code: the editor opens blank');
       assert.ok(Number.isInteger(hole.par) && hole.par >= 1, 'par is a positive integer');
 

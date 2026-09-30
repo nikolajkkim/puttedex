@@ -83,10 +83,11 @@ async function start() {
       </nav>`;
   }
 
-  function renderYardageBook() {
+  function renderYardageBook(hole) {
     return `
       <section class="yardage" aria-labelledby="yardage-title">
         <h2 id="yardage-title">📒 Yardage book: tables you can query</h2>
+        ${hole.yardage ? `<p class="yardage-note"><strong>For this hole:</strong> ${hole.yardage}</p>` : ''}
         ${schema.map((tbl, i) => `
           <details ${i === 0 ? 'open' : ''}>
             <summary>${esc(tbl.name)} <span>${tbl.rowCount} rows</span></summary>
@@ -114,12 +115,13 @@ async function start() {
           <div class="kicker">${esc(t.title)} · Hole ${index + 1} of ${t.holes.length} · Par ${hole.par}</div>
           <h1 id="hole-title">${esc(hole.title)}</h1>
           ${hole.lesson}
+          ${hole.interview ? `<p class="tip"><strong>Interview angle:</strong> ${hole.interview}</p>` : ''}
           <div class="task">
             <h2>⛳ Your shot</h2>
             <p>${hole.task}</p>
           </div>
           <div class="hint-box" id="hint-box"></div>
-          ${renderYardageBook()}
+          ${renderYardageBook(hole)}
           <div class="pager">
             ${index > 0 ? `<a class="btn btn-small" href="${urls.hole(t.id, index)}" data-hole="${index - 1}">← Hole ${index}</a>` : '<span></span>'}
             ${index < t.holes.length - 1

@@ -4,7 +4,9 @@
 // Hole fields:
 //   id           stable key used for saved progress. Never rename it once shipped.
 //   title, par   par is the target stroke count (usually 2, or 3 for harder holes)
-//   lesson       HTML teaching the concept
+//   lesson       HTML teaching the concept (examples in <pre>; use a different table or column than the task)
+//   interview    HTML for the "Interview angle" note: how this shows up in interviews
+//   yardage      HTML for the yardage book note: which tables and columns this hole needs
 //   task         HTML describing exactly what the result must contain (columns, order, rounding)
 //   solution     reference query; the checker compares the learner's result with this one's
 //   hint         the caddie tip (costs a stroke)
@@ -22,9 +24,9 @@ export default [
       <em>from</em> a table:</p>
       <pre>SELECT * FROM rounds;</pre>
       <p>The <code>*</code> means "every column". The trailing semicolon ends the statement.
-      SQL keywords aren't case-sensitive, but writing them in UPPERCASE is the convention.</p>
-      <p class="tip"><strong>Interview angle:</strong> Interviewers expect you to explore a table before
-      answering questions about it. <code>SELECT *</code> is how you take a first look.</p>`,
+      SQL keywords aren't case-sensitive, but writing them in UPPERCASE is the convention.</p>`,
+    interview: `Interviewers expect you to explore a table before answering questions about it. <code>SELECT *</code> is how you take a first look.`,
+    yardage: `Everything you need is in <code>players</code>.`,
     task: `Return <strong>every column</strong> for <strong>every player</strong> in the <code>players</code> table,
       with the columns in the table's own order.`,
     solution: `SELECT *
@@ -44,9 +46,9 @@ FROM players;`,
       <p>Instead of <code>*</code>, list the columns you want, separated by commas. They come back
       <em>in the order you list them</em>:</p>
       <pre>SELECT played_on, score FROM rounds;</pre>
-      <p>Naming columns makes a query faster to read and cheaper to run on wide tables.</p>
-      <p class="tip"><strong>Interview angle:</strong> Avoid <code>SELECT *</code> in a final answer.
-      Selecting exactly what the question asks for shows precision.</p>`,
+      <p>Naming columns makes a query faster to read and cheaper to run on wide tables.</p>`,
+    interview: `Avoid <code>SELECT *</code> in a final answer. Selecting exactly what the question asks for shows precision.`,
+    yardage: `<code>players.name</code> and <code>players.country</code>.`,
     task: `Return each player's <code>name</code> and <code>country</code>, in that column order.`,
     solution: `SELECT name, country
 FROM players;`,
@@ -66,6 +68,8 @@ FROM players;`,
       <p>Text values go in <strong>single quotes</strong>. Comparisons use <code>=</code>, <code>&lt;&gt;</code>
       (not equal), <code>&lt;</code>, <code>&gt;</code>, <code>&lt;=</code>, and <code>&gt;=</code>.
       In SQLite, <code>=</code> on text is case-sensitive, so <code>'usa'</code> won't match <code>'USA'</code>.</p>`,
+    interview: `Filters on text are where real data bites. Ask how values are cased and whether they have stray spaces. In SQLite <code>=</code> on text is case-sensitive; in MySQL it usually isn't. Saying so shows you've worked with messy data.`,
+    yardage: `<code>players.country</code> holds values like <code>'Scotland'</code>. <code>handicap</code> can be NULL.`,
     task: `Return the <code>name</code> and <code>handicap</code> (in that order) of every player whose country is
       <strong>Scotland</strong>.`,
     solution: `SELECT name, handicap
@@ -90,9 +94,9 @@ WHERE country = 'Scotland';`,
       <pre>SELECT * FROM rounds
 WHERE weather = 'Rain' OR weather = 'Windy';</pre>
       <p><code>AND</code> binds tighter than <code>OR</code>. When you mix them, add parentheses so the logic
-      is unambiguous: <code>WHERE score &lt; 72 AND (weather = 'Rain' OR weather = 'Windy')</code>.</p>
-      <p class="tip"><strong>Interview angle:</strong> A missing pair of parentheses around an
-      <code>OR</code> is one of the most common SQL bugs. Say out loud what each condition filters.</p>`,
+      is unambiguous: <code>WHERE score &lt; 72 AND (weather = 'Rain' OR weather = 'Windy')</code>.</p>`,
+    interview: `A missing pair of parentheses around an <code>OR</code> is one of the most common SQL bugs. Say out loud what each condition filters.`,
+    yardage: `<code>rounds.score</code> and <code>rounds.putts</code> are both integers.`,
     task: `Find the rounds with a <code>score</code> <strong>under 75</strong> and <strong>28 putts or fewer</strong>.
       Return <code>round_id</code>, <code>score</code>, and <code>putts</code>, in that order.`,
     solution: `SELECT round_id, score, putts
@@ -120,9 +124,9 @@ WHERE score < 75
       <pre>SELECT name, yardage FROM courses
 ORDER BY yardage DESC
 LIMIT 3;</pre>
-      <p>In golf, <strong>lower is better</strong>, so the leaderboard sorts scores ascending.</p>
-      <p class="tip"><strong>Interview angle:</strong> "Top N" questions are everywhere. Always ask how ties
-      should be handled. Without a tiebreaker, the order of tied rows isn't guaranteed.</p>`,
+      <p>In golf, <strong>lower is better</strong>, so the leaderboard sorts scores ascending.</p>`,
+    interview: `"Top N" questions are everywhere. Always ask how ties should be handled. Without a tiebreaker, the order of tied rows isn't guaranteed.`,
+    yardage: `<code>rounds.score</code>: lower is better. <code>round_id</code> is unique, so it's a safe tiebreaker.`,
     task: `Build a leaderboard of the <strong>5 best (lowest) rounds</strong>. Return <code>round_id</code> and
       <code>score</code>, in that order. Sort by <code>score</code> ascending and break ties by <code>round_id</code> ascending.`,
     solution: `SELECT round_id, score
@@ -148,6 +152,8 @@ LIMIT 5;`,
       <pre>SELECT DISTINCT weather FROM rounds;</pre>
       <p>With several columns, <code>DISTINCT</code> applies to the <em>combination</em>:
       <code>SELECT DISTINCT player_id, course_id</code> returns each player–course pairing once.</p>`,
+    interview: `The usual follow-up is "how many countries?", which is <code>COUNT(DISTINCT country)</code>. Know that <code>DISTINCT</code> applies to the whole row, not one column, and that <code>GROUP BY country</code> gives the same rows when you also need aggregates.`,
+    yardage: `<code>players.country</code> repeats: several players share a country.`,
     task: `Which countries do our players come from? Return each <code>country</code> from <code>players</code>
       <strong>exactly once</strong>.`,
     solution: `SELECT DISTINCT country
@@ -171,9 +177,9 @@ SELECT * FROM players WHERE handicap = NULL;
 
 -- Right
 SELECT * FROM players WHERE handicap IS NULL;</pre>
-      <p>Use <code>IS NULL</code> and <code>IS NOT NULL</code>.</p>
-      <p class="tip"><strong>Interview angle:</strong> NULL handling is a favorite trick question. It also
-      matters for aggregates: <code>COUNT(handicap)</code> skips NULLs, but <code>COUNT(*)</code> doesn't.</p>`,
+      <p>Use <code>IS NULL</code> and <code>IS NOT NULL</code>.</p>`,
+    interview: `NULL handling is a favorite trick question. It also matters for aggregates: <code>COUNT(handicap)</code> skips NULLs, but <code>COUNT(*)</code> doesn't.`,
+    yardage: `<code>players.handicap</code> is the only nullable column in <code>players</code>.`,
     task: `Some players don't have an official handicap yet. Return the <code>name</code> of every player whose
       <code>handicap</code> is missing.`,
     solution: `SELECT name
@@ -199,9 +205,9 @@ WHERE handicap IS NULL;`,
      AVG(putts) AS avg_putts
 FROM rounds
 WHERE weather = 'Rain';</pre>
-      <p><code>ROUND(value, 1)</code> rounds to one decimal place.</p>
-      <p class="tip"><strong>Interview angle:</strong> <code>WHERE</code> filters rows <em>before</em> they're
-      aggregated. Remember that for the next shot.</p>`,
+      <p><code>ROUND(value, 1)</code> rounds to one decimal place.</p>`,
+    interview: `<code>WHERE</code> filters rows <em>before</em> they're aggregated. Remember that for the next shot.`,
+    yardage: `All four numbers come from <code>rounds</code>: a row count plus <code>score</code>.`,
     task: `Summarize every round in one row with four columns, in this order: the number of rounds, the average
       score <strong>rounded to 1 decimal</strong>, the best (lowest) score, and the worst (highest) score.`,
     solution: `SELECT
@@ -231,9 +237,9 @@ GROUP BY course_id;</pre>
       <p>To filter <em>groups</em> by an aggregate, use <code>HAVING</code>. <code>WHERE</code> can't see aggregates,
       because it runs before grouping:</p>
       <pre>... GROUP BY course_id
-HAVING COUNT(*) &gt;= 10;</pre>
-      <p class="tip"><strong>Interview angle:</strong> "What's the difference between WHERE and HAVING?" is asked
-      constantly. <code>WHERE</code> filters rows before grouping. <code>HAVING</code> filters groups after it.</p>`,
+HAVING COUNT(*) &gt;= 10;</pre>`,
+    interview: `"What's the difference between WHERE and HAVING?" is asked constantly. <code>WHERE</code> filters rows before grouping. <code>HAVING</code> filters groups after it.`,
+    yardage: `<code>rounds.player_id</code> says whose round it is.`,
     task: `For each player who has played <strong>at least 5 rounds</strong>, return three columns in this order:
       their <code>player_id</code>, their number of rounds, and their average score <strong>rounded to 1 decimal</strong>.`,
     solution: `SELECT
@@ -266,10 +272,9 @@ FROM rounds AS r
 JOIN courses AS c ON c.course_id = r.course_id;</pre>
       <p>Short table aliases (<code>r</code>, <code>c</code>) keep things readable. They're also required when both
       tables have a column with the same name. You can do arithmetic across the joined tables, too:
-      <code>r.score - c.par</code> is strokes over par.</p>
-      <p class="tip"><strong>Interview angle:</strong> JOIN + GROUP BY is the bread and butter of SQL interviews.
-      Know that <code>JOIN</code> (inner) drops rows that have no match. <code>LEFT JOIN</code> keeps them. That's the
-      next hole.</p>`,
+      <code>r.score - c.par</code> is strokes over par.</p>`,
+    interview: `JOIN + GROUP BY is the bread and butter of SQL interviews. Know that <code>JOIN</code> (inner) drops rows that have no match. <code>LEFT JOIN</code> keeps them. That's the next hole.`,
+    yardage: `<code>rounds.course_id</code> matches <code>courses.course_id</code>. Par lives in <code>courses.par</code>.`,
     task: `Which course plays hardest? For each course, return three columns in this order: its <code>name</code>,
       the number of rounds played there, and the average <strong>strokes over par</strong> (<code>score - par</code>) <strong>rounded to 1 decimal</strong>.
       Sort by that average, <strong>hardest first</strong>, and break ties by course name A→Z.`,

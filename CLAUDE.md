@@ -111,8 +111,9 @@ Tournaments whose engine isn't `'sql'` can be listed but not opened yet: `hole.h
 Append an object to the array in `js/data/holes/<holeSet>.js`. Array position is the hole number, and there are at
 most 18. The fields are documented at the top of that file:
 
-- `id` (permanent, kebab-case), `title`, `par`, `lesson` (HTML), `task` (HTML), `solution`, `hint`, and optionally
-  `orderMatters`.
+- `id` (permanent, kebab-case), `title`, `par`, `lesson` (HTML), `interview` (the "Interview angle" note), `yardage`
+  (the yardage book's "For this hole" note: which tables and columns it needs), `task` (HTML), `solution`, `hint`
+  (the caddie tip), and optionally `orderMatters`. Tests require all of these except `orderMatters`.
 - The **task must spell out everything the checker grades**: exactly which columns, **in what order**, any rounding,
   and, if `orderMatters`, the sort order including tie-breaks. The checker compares against the solution's result, so
   anything the task leaves open must not change that result.

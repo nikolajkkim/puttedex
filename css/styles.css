@@ -610,6 +610,7 @@ pre.pro-line { margin: 0.5rem 0 0; white-space: pre; }
 .data-table .null { color: #9aa597; font-style: italic; }
 .empty { color: var(--muted); font-size: 0.9rem; margin: 0; }
 
+.yardage-note { margin: 0 0 0.6rem; font-size: 0.88rem; background: var(--green-tint); padding: 0.45rem 0.65rem; border-radius: 6px; }
 .yardage details { border-top: 1px solid var(--line); padding: 0.45rem 0; }
 .yardage details:first-of-type { border-top: 0; }
 .yardage summary { cursor: pointer; font-family: var(--font-mono); font-weight: 600; font-size: 0.88rem; }
