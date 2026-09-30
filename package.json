@@ -1,0 +1,10 @@
+{
+  "name": "puttedex",
+  "private": true,
+  "type": "module",
+  "description": "A golf-themed, Codedex-style data science learning platform. Static site for GitHub Pages.",
+  "scripts": {
+    "serve": "python3 -m http.server 8000",
+    "test": "node --test \"tests/*.test.mjs\""
+  }
+}

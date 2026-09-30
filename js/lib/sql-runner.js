@@ -1,0 +1,57 @@
+// Runs SQL against a fresh sql.js database built from a seed script.
+// DOM-free on purpose: the browser and the Node tests share this exact code path.
+
+let sqlPromise = null;
+
+/** Load sql.js once. `initSqlJs` is the global from vendor/sql.js/sql-wasm.js (or `require` in Node). */
+export function loadSqlJs(initSqlJs, locateFile) {
+  if (!sqlPromise) {
+    sqlPromise = initSqlJs(locateFile ? { locateFile } : undefined).catch((err) => {
+      sqlPromise = null; // allow a retry after a transient failure (e.g. a flaky network fetch of the .wasm)
+      throw err;
+    });
+  }
+  return sqlPromise;
+}
+
+/**
+ * Execute `query` on a brand-new database seeded with `seed`.
+ * Returns the LAST result set: { columns: string[], rows: any[][] }.
+ * A query that produces no result set (e.g. only an UPDATE) returns empty columns and rows.
+ * Throws on SQL errors; the message is SQLite's own.
+ */
+export function runQuery(SQL, seed, query) {
+  const db = new SQL.Database();
+  try {
+    db.run(seed);
+    const results = db.exec(query);
+    if (results.length === 0) return { columns: [], rows: [] };
+    const { columns, values } = results[results.length - 1];
+    return { columns, rows: values };
+  } finally {
+    db.close();
+  }
+}
+
+/** Tables and their columns, for the yardage book (schema reference). */
+export function describeSchema(SQL, seed) {
+  const db = new SQL.Database();
+  try {
+    db.run(seed);
+    const [tables] = db.exec("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY rowid");
+    if (!tables) return [];
+    return tables.values.map(([name]) => {
+      const [info] = db.exec(`PRAGMA table_info(${JSON.stringify(name)})`);
+      const [[count]] = db.exec(`SELECT COUNT(*) FROM ${JSON.stringify(name)}`)[0].values;
+      return {
+        name,
+        rowCount: count,
+        columns: info.values.map(([, col, type, notnull, , pk]) => ({
+          name: col, type, nullable: !notnull && !pk, primaryKey: !!pk,
+        })),
+      };
+    });
+  } finally {
+    db.close();
+  }
+}

@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Puttedex: Learn data science, one hole at a time</title>
+  <meta name="description" content="A golf-themed, hands-on course in SQL, Python, and statistics for data science interviews. Runs entirely in your browser.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cellipse cx='16' cy='26' rx='13' ry='4.5' fill='%234f8a5c'/%3E%3Cline x1='16' y1='26' x2='16' y2='4' stroke='%231a2a1e' stroke-width='2'/%3E%3Cpath d='M17 4.5 L29 9 L17 13.5 Z' fill='%23c63f2b'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="./" id="brand">Puttedex</a>
+      <nav aria-label="Main">
+        <a href="#course-map">Course map</a>
+        <a href="#scorecard">Scorecard</a>
+        <a href="#locker-room">Locker room</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-inner">
+      <span class="eyebrow">Data science interview prep · Front nine</span>
+      <h1>Learn data science, one hole at a time.</h1>
+      <p>Write real SQL and Python against a golf database, right in your browser. Every exercise is a shot:
+        hole out under par and you're ready for the interview.</p>
+      <div class="hero-actions">
+        <a class="btn btn-flag" id="cta" href="course.html?hole=sql-basics">Tee off: SQL Basics</a>
+        <a class="btn btn-ghost" href="#course-map">View the course map</a>
+      </div>
+    </div>
+  </section>
+
+  <main class="page">
+    <section class="section" id="course-map" aria-labelledby="map-title">
+      <div class="section-head">
+        <div>
+          <h2 id="map-title">The course map</h2>
+          <p>Nine holes from your first <code>SELECT</code> to a full mock interview. Play them in order.</p>
+        </div>
+      </div>
+      <ol class="course-map" id="map"></ol>
+    </section>
+
+    <section class="section" id="scorecard" aria-labelledby="card-title">
+      <div class="section-head">
+        <div>
+          <h2 id="card-title">Your scorecard</h2>
+          <p>A stroke is one submitted answer. A caddie tip costs one penalty stroke. Practice swings (Run) are free.</p>
+        </div>
+      </div>
+      <div class="scorecard-wrap"><table class="scorecard" id="scorecard-table"></table></div>
+      <div class="scorecard-legend">
+        <span><span class="score-mark under">3</span>Under par</span>
+        <span><span class="score-mark">4</span>Par</span>
+        <span><span class="score-mark over">5</span>Over par</span>
+        <span><em>thru N</em>: shots completed on a hole in progress</span>
+      </div>
+    </section>
+
+    <section class="section" id="locker-room" aria-labelledby="locker-title">
+      <div class="section-head">
+        <div>
+          <h2 id="locker-title">Locker room</h2>
+          <p>Your progress is saved in this browser only. Export it to back it up or move it to another device.</p>
+        </div>
+      </div>
+      <div class="locker">
+        <div class="panel">
+          <h3>Export progress</h3>
+          <p>Download your scorecard and saved answers as a JSON file.</p>
+          <button class="btn btn-primary" id="export-btn" type="button">Export JSON</button>
+        </div>
+        <div class="panel">
+          <h3>Import progress</h3>
+          <p>Restore from an exported file. This replaces the progress saved in this browser.</p>
+          <label class="btn" for="import-file">Choose file…</label>
+          <input class="visually-hidden" type="file" id="import-file" accept="application/json,.json">
+        </div>
+        <div class="panel">
+          <h3>Start a new round</h3>
+          <p>Clear all progress in this browser. Export first if you want to keep it.</p>
+          <button class="btn" id="reset-btn" type="button">Reset progress</button>
+        </div>
+      </div>
+      <p class="notice" id="locker-notice" role="status" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <footer class="footer">Puttedex runs entirely in your browser. No account, no server. Your code never leaves your machine.</footer>
+
+  <script type="module" src="js/pages/home.js"></script>
+</body>
+</html>
