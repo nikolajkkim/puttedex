@@ -3,23 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Puttedex</title>
+  <title>The Driving Range · Puttedex</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cellipse cx='16' cy='26' rx='13' ry='4.5' fill='%234f8a5c'/%3E%3Cline x1='16' y1='26' x2='16' y2='4' stroke='%231a2a1e' stroke-width='2'/%3E%3Cpath d='M17 4.5 L29 9 L17 13.5 Z' fill='%23c63f2b'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
-  <link rel="stylesheet" href="vendor/codemirror/codemirror.css">
   <link rel="stylesheet" href="css/styles.css">
-  <!-- Defines the global initSqlJs; the .wasm is fetched from the same folder. -->
-  <script src="vendor/sql.js/sql-wasm.js"></script>
-  <!-- CodeMirror 5 (global CodeMirror): editor with line numbers, SQL highlighting, and indentation. -->
-  <script src="vendor/codemirror/codemirror.js"></script>
-  <script src="vendor/codemirror/sql.js"></script>
-  <script src="vendor/codemirror/placeholder.js"></script>
-  <script src="vendor/codemirror/matchbrackets.js"></script>
-  <script src="vendor/codemirror/closebrackets.js"></script>
-  <script src="vendor/codemirror/comment.js"></script>
-  <script src="vendor/codemirror/runmode.js"></script>
 </head>
 <body>
   <header class="topbar">
@@ -27,7 +16,7 @@
       <a class="brand" href="./" id="brand">Puttedex</a>
       <nav aria-label="Main">
         <a href="./#schedule-title">Schedule</a>
-        <a href="range.html">Driving Range</a>
+        <a href="range.html" aria-current="page">Driving Range</a>
         <a href="./#locker-room">Locker room</a>
       </nav>
     </div>
@@ -36,10 +25,10 @@
   <main id="app">
     <div class="loading">
       <div class="ball" aria-hidden="true"></div>
-      <p>Warming up on the driving range…</p>
+      <p>Setting up the range…</p>
     </div>
   </main>
 
-  <script type="module" src="js/pages/hole.js"></script>
+  <script type="module" src="js/pages/range.js"></script>
 </body>
 </html>
