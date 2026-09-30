@@ -59,7 +59,7 @@ ORDER BY handicap ASC;`,
   {
     id: 'cypress-conditions',
     title: 'Conditions at Cypress Point',
-    par: 3,
+    par: 4,
     tags: ['DISTINCT', 'JOIN'],
     task: `Which kinds of weather have rounds been played in at <strong>Cypress Point</strong>? Return each
       <code>weather</code> value once.`,
@@ -69,7 +69,7 @@ JOIN courses AS c ON c.course_id = r.course_id
 WHERE c.name = 'Cypress Point';`,
     hint: "Join <code>rounds</code> to <code>courses</code>, filter on <code>c.name = 'Cypress Point'</code>, and use <code>SELECT DISTINCT</code>.",
     alternatives: [
-      "SELECT weather FROM rounds WHERE course_id = (SELECT course_id FROM courses WHERE name = 'Cypress Point') GROUP BY weather;",
+      "SELECT r.weather FROM courses AS c JOIN rounds AS r USING (course_id) WHERE c.name = 'Cypress Point' GROUP BY r.weather;",
     ],
     mistakes: [
       "SELECT r.weather FROM rounds r JOIN courses c ON c.course_id = r.course_id WHERE c.name = 'Cypress Point';",
@@ -81,23 +81,23 @@ WHERE c.name = 'Cypress Point';`,
     id: 'season-totals',
     title: 'Season totals',
     par: 3,
-    tags: ['Aggregates'],
-    task: `Summarize every round in one row with four columns, in this order: the <strong>total</strong> putts, the
-      <strong>average</strong> putts per round <strong>rounded to 1 decimal</strong>, the <strong>most</strong>
-      fairways hit in a single round, and the <strong>fewest</strong> putts in a single round.`,
+    tags: ['Aggregates', 'COUNT DISTINCT'],
+    task: `Size up the whole season in one row with four columns, in this order: the number of rounds, how many
+      <strong>different</strong> players played them, how many <strong>different</strong> courses they were played
+      on, and the total strokes (all scores added up).`,
     solution: `SELECT
-  SUM(putts) AS total_putts,
-  ROUND(AVG(putts), 1) AS avg_putts,
-  MAX(fairways_hit) AS most_fairways,
-  MIN(putts) AS fewest_putts
+  COUNT(*) AS rounds_played,
+  COUNT(DISTINCT player_id) AS players,
+  COUNT(DISTINCT course_id) AS courses,
+  SUM(score) AS total_strokes
 FROM rounds;`,
-    hint: '<code>SUM(putts)</code>, <code>ROUND(AVG(putts), 1)</code>, <code>MAX(fairways_hit)</code>, and <code>MIN(putts)</code>.',
-    alternatives: ['SELECT TOTAL(putts), ROUND(SUM(putts) * 1.0 / COUNT(*), 1), MAX(fairways_hit), MIN(putts) FROM rounds;'],
+    hint: '<code>COUNT(DISTINCT player_id)</code> counts each player once, however many rounds they played. '
+      + 'Do the same for <code>course_id</code>, and add up <code>score</code> with <code>SUM</code>.',
+    alternatives: ['SELECT COUNT(round_id), COUNT(DISTINCT player_id), COUNT(DISTINCT course_id), TOTAL(score) FROM rounds;'],
     mistakes: [
-      'SELECT SUM(putts), AVG(putts), MAX(fairways_hit), MIN(putts) FROM rounds;',
-      'SELECT SUM(putts), ROUND(SUM(putts) / COUNT(*), 1), MAX(fairways_hit), MIN(putts) FROM rounds;',
-      'SELECT COUNT(putts), ROUND(AVG(putts), 1), MAX(fairways_hit), MIN(putts) FROM rounds;',
-      'SELECT SUM(putts), ROUND(AVG(putts), 1), MIN(putts), MAX(fairways_hit) FROM rounds;',
+      'SELECT COUNT(*), COUNT(player_id), COUNT(course_id), SUM(score) FROM rounds;',
+      'SELECT COUNT(*), COUNT(DISTINCT player_id), COUNT(DISTINCT course_id), SUM(DISTINCT score) FROM rounds;',
+      'SELECT COUNT(*), COUNT(DISTINCT course_id), COUNT(DISTINCT player_id), SUM(score) FROM rounds;',
     ],
   },
   {
