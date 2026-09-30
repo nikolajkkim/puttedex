@@ -378,7 +378,7 @@ a.stop-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgb(20 4
 .stat-value small { font: 600 1rem var(--font-body); color: var(--muted); }
 .stat-note { font-size: 0.8rem; color: var(--muted); }
 
-.scorecard-stack { display: grid; gap: 0.75rem; margin-top: 1.25rem; }
+.scorecard-stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem; margin-top: 1.25rem; }
 .scorecard-stack .scorecard-wrap { margin-top: 0; }
 .scorecard-stack .scorecard { table-layout: fixed; }
 .scorecard .locked { background: #f1f2ec; color: #9aa597; }
@@ -411,10 +411,17 @@ a.stop-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgb(20 4
   margin: 0 auto;
   padding: 1.25rem;
   display: grid;
-  grid-template-columns: 230px minmax(0, 1fr) minmax(0, 1.25fr);
+  /* Every track has a 0 minimum so wide content (results tables, long SQL) can never widen the page.
+     Collapses to two columns, then one: see the media queries at the end of the file. */
+  grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1.15fr);
+  grid-template-areas: 'holes problem work';
   gap: 1.25rem;
   align-items: start;
 }
+.player > .hole-list { grid-area: holes; }
+.player > .lesson { grid-area: problem; }
+.player > .workspace { grid-area: work; }
+.player > * { min-width: 0; }
 .hole-list {
   position: sticky;
   top: 5rem;
@@ -427,6 +434,7 @@ a.stop-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgb(20 4
 .hole-list .hole-total { font-size: 0.82rem; color: var(--muted); margin: 0 0 0.75rem; }
 .hole-list ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.15rem; }
 .hole-link {
+  position: relative; /* contains the visually hidden title in the compact strip, so it can't escape the scroller */
   display: grid;
   grid-template-columns: 1.6rem 1fr auto;
   align-items: center;
@@ -493,7 +501,13 @@ a.stop-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgb(20 4
 .hint-box .hint { background: #fbf6e6; padding: 0.6rem 0.8rem; border-radius: 8px; margin-top: 0.5rem; }
 .pager { display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 1.25rem; flex-wrap: wrap; }
 
-.workspace { display: grid; gap: 1rem; min-width: 0; }
+.workspace {
+  display: grid;
+  /* An explicit minmax(0, 1fr) track: an implicit column is sized "auto", which let the results table's full
+     width become the column's minimum and pushed the page wider than the screen. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
 .editor-card { padding: 0; overflow: hidden; }
 .editor-head {
   display: flex;
@@ -590,7 +604,7 @@ pre.pro-line { margin: 0.5rem 0 0; white-space: pre; }
   background: #fbfbf6;
 }
 .results-meta { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.4rem; }
-.table-scroll { overflow: auto; max-height: 360px; border: 1px solid var(--line); border-radius: 8px; }
+.table-scroll { overflow: auto; max-width: 100%; max-height: 360px; border: 1px solid var(--line); border-radius: 8px; }
 .data-table { border-collapse: collapse; width: 100%; font-size: 0.84rem; font-variant-numeric: tabular-nums; }
 .data-table th, .data-table td { padding: 0.35rem 0.7rem; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
 .data-table th { position: sticky; top: 0; background: var(--green-tint); font-family: var(--font-mono); font-size: 0.78rem; }
@@ -621,24 +635,37 @@ pre.pro-line { margin: 0.5rem 0 0; white-space: pre; }
 
 /* ---------- Responsive ---------- */
 
-@media (max-width: 1100px) {
-  .player { grid-template-columns: minmax(0, 1fr); }
-  .hole-list { position: static; }
-  .hole-list ol { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+/* Hole view, 860–1199px: the hole list becomes a strip of numbered holes above two columns. */
+@media (max-width: 1199px) {
+  .player {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: 'holes holes' 'problem work';
+  }
+  .hole-list { position: static; display: flex; align-items: center; gap: 0.75rem 1rem; flex-wrap: wrap; padding: 0.7rem 0.9rem; }
+  .hole-list h2 { margin: 0; }
+  .hole-list .hole-total { margin: 0; }
+  .hole-list ol { display: flex; flex: 1 1 100%; min-width: 0; overflow-x: auto; gap: 0.35rem; padding-bottom: 0.3rem; }
+  .hole-link { grid-template-columns: auto; justify-items: center; padding: 0.35rem 0.45rem; gap: 0.15rem; }
+  .hole-link .hole-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .hole-link .strokes { font-size: 0.68rem; }
+  .hole-link .score-mark { min-width: 1.3rem; height: 1.3rem; }
+  .hole-locked { margin: 0; }
+}
+
+/* Hole view, below 860px: one column, in reading order (holes, problem, then editor and results). */
+@media (max-width: 859px) {
+  .player { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'holes' 'problem' 'work'; padding-inline: 1rem; }
+  .player-head { padding-inline: 1rem; }
 }
 
 @media (max-width: 720px) {
   .roadmap { grid-template-columns: minmax(0, 1fr); }
   .roadmap::before { left: 29px; }
   .stop, .stop:nth-child(even) { grid-column: 1; grid-row: auto !important; }
-  .hole-list ol { display: flex; overflow-x: auto; gap: 0.35rem; padding-bottom: 0.3rem; }
-  .hole-link { grid-template-columns: auto; justify-items: center; padding: 0.35rem; gap: 0.15rem; }
-  .hole-link .hole-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  .hole-link .strokes { font-size: 0.68rem; }
-  .hole-link .score-mark { min-width: 1.3rem; height: 1.3rem; }
   .stop::after { display: none; }
   .stop-card:not(.hole-slot) { grid-template-columns: auto 1fr; }
   .topbar nav { margin-left: 0; width: 100%; }
+  .editor-head span { display: none; } /* keyboard shortcuts: not useful on touch screens, and they crowd the bar */
 }
 
 @media (prefers-reduced-motion: reduce) {
