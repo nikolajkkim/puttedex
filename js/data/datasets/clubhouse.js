@@ -7,7 +7,8 @@ CREATE TABLE players (
   name       TEXT NOT NULL,
   country    TEXT NOT NULL,
   handicap   REAL,            -- NULL when the player has no official handicap yet
-  is_pro     INTEGER NOT NULL -- 1 = professional, 0 = amateur
+  is_pro     INTEGER NOT NULL, -- 1 = professional, 0 = amateur
+  home_course_id INTEGER REFERENCES courses(course_id) -- the player's home club; NULL when they have none
 );
 
 CREATE TABLE courses (
@@ -33,18 +34,23 @@ CREATE TABLE rounds (
 
 export const SEED = SCHEMA + `
 INSERT INTO players VALUES
-  (1, 'Ava Birdwell', 'USA', 2.4, 1),
-  (2, 'Mateo Fairway', 'Spain', 5.1, 0),
-  (3, 'Kenji Sato', 'Japan', 0.8, 1),
-  (4, 'Isla MacLeod', 'Scotland', NULL, 0),
-  (5, 'Liam Chipman', 'USA', 12.3, 0),
-  (6, 'Priya Raman', 'India', 3.7, 1),
-  (7, 'Oscar Lindqvist', 'Sweden', 8.9, 0),
-  (8, 'Chloe Dubois', 'France', NULL, 0),
-  (9, 'Noah Greenfield', 'USA', 1.5, 1),
-  (10, 'Sofia Rossi', 'Italy', 15.0, 0),
-  (11, 'Hamish Craig', 'Scotland', 4.2, 0),
-  (12, 'Mina Park', 'South Korea', 0.3, 1);
+  (1, 'Ava Birdwell', 'USA', 2.4, 1, 1),
+  (2, 'Mateo Fairway', 'Spain', 5.1, 0, 6),
+  (3, 'Kenji Sato', 'Japan', 0.8, 1, 4),
+  (4, 'Isla MacLeod', 'Scotland', NULL, 0, 2),
+  (5, 'Liam Chipman', 'USA', 12.3, 0, 1),
+  (6, 'Priya Raman', 'India', 3.7, 1, NULL),
+  (7, 'Oscar Lindqvist', 'Sweden', 8.9, 0, 5),
+  (8, 'Chloe Dubois', 'France', NULL, 0, NULL),
+  (9, 'Noah Greenfield', 'USA', 1.5, 1, 3),
+  (10, 'Sofia Rossi', 'Italy', 15.0, 0, 6),
+  (11, 'Hamish Craig', 'Scotland', 4.2, 0, 2),
+  (12, 'Mina Park', 'South Korea', 0.3, 1, 4),
+  -- Members who haven't played a recorded round yet
+  (13, 'Lucas Ferreira', 'Brazil', 18.2, 0, NULL),
+  (14, 'Grace Thompson', 'USA', NULL, 0, 3),
+  (15, 'Erik Johansson', 'Sweden', 6.4, 0, 5),
+  (16, 'Aiko Tanaka', 'Japan', 9.8, 1, 4);
 
 INSERT INTO courses VALUES
   (1, 'Pine Hollow', 'Pinehurst', 'USA', 72, 7120),
@@ -52,7 +58,9 @@ INSERT INTO courses VALUES
   (3, 'Cypress Point', 'Monterey', 'USA', 71, 6530),
   (4, 'Sakura Hills', 'Chiba', 'Japan', 72, 7010),
   (5, 'Lakeside Dunes', 'Malmo', 'Sweden', 70, 6450),
-  (6, 'Riviera Verde', 'Marbella', 'Spain', 71, 6810);
+  (6, 'Riviera Verde', 'Marbella', 'Spain', 71, 6810),
+  (7, 'Desert Mirage', 'Scottsdale', 'USA', 72, 7250), -- no rounds yet, and nobody's home course
+  (8, 'Coral Bay', 'Sydney', 'Australia', 71, 6720);   -- played, but nobody's home course
 
 INSERT INTO rounds VALUES
   (1, 5, 2, '2026-03-15', 86, 28, 6, 'Sunny'),
@@ -104,5 +112,9 @@ INSERT INTO rounds VALUES
   (47, 9, 5, '2026-08-13', 69, 29, 13, 'Sunny'),
   (48, 4, 6, '2026-08-14', 86, 34, 7, 'Windy'),
   (49, 10, 5, '2026-08-24', 84, 30, 8, 'Sunny'),
-  (50, 1, 4, '2026-08-25', 73, 30, 9, 'Sunny');
+  (50, 1, 4, '2026-08-25', 73, 30, 9, 'Sunny'),
+  (51, 1, 8, '2026-08-27', 73, 29, 10, 'Sunny'),
+  (52, 9, 8, '2026-08-28', 72, 30, 9, 'Windy'),
+  (53, 12, 8, '2026-08-29', 70, 27, 12, 'Sunny'),
+  (54, 3, 8, '2026-08-30', 74, 31, 8, 'Overcast');
 `;

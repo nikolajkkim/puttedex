@@ -36,7 +36,7 @@ FROM players;`,
     hint: 'The table is called <code>players</code>. Use <code>SELECT * FROM table_name;</code>.',
     alternatives: [
       'select * from players',
-      'SELECT player_id, name, country, handicap, is_pro FROM players;',
+      'SELECT player_id, name, country, handicap, is_pro, home_course_id FROM players;',
     ],
     mistakes: ['SELECT name FROM players;', 'SELECT * FROM courses;'],
   },
@@ -181,7 +181,7 @@ SELECT * FROM players WHERE handicap = NULL;
 SELECT * FROM players WHERE handicap IS NULL;</pre>
       <p>Use <code>IS NULL</code> and <code>IS NOT NULL</code>.</p>`,
     interview: `NULL handling is a favorite trick question. It also matters for aggregates: <code>COUNT(handicap)</code> skips NULLs, but <code>COUNT(*)</code> doesn't.`,
-    yardage: `<code>players.handicap</code> is the only nullable column in <code>players</code>.`,
+    yardage: `<code>players.handicap</code> is NULL for players without an official handicap.`,
     task: `Some players don't have an official handicap yet. Return the <code>name</code> of every player whose
       <code>handicap</code> is missing.`,
     solution: `SELECT name
@@ -277,7 +277,7 @@ JOIN courses AS c ON c.course_id = r.course_id;</pre>
       <code>r.score - c.par</code> is strokes over par.</p>`,
     interview: `JOIN + GROUP BY is the bread and butter of SQL interviews. Know that <code>JOIN</code> (inner) drops rows that have no match. <code>LEFT JOIN</code> keeps them. That's the next hole.`,
     yardage: `<code>rounds.course_id</code> matches <code>courses.course_id</code>. Par lives in <code>courses.par</code>.`,
-    task: `Which course plays hardest? For each course, return three columns in this order: its <code>name</code>,
+    task: `Which course plays hardest? For each course that has been played, return three columns in this order: its <code>name</code>,
       the number of rounds played there, and the average <strong>strokes over par</strong> (<code>score - par</code>) <strong>rounded to 1 decimal</strong>.
       Sort by that average, <strong>hardest first</strong>, and break ties by course name A→Z.`,
     solution: `SELECT
@@ -399,7 +399,8 @@ HAVING SUM(CASE WHEN weather = 'Rain' THEN 1 ELSE 0 END) = 0;</pre>
       "always under par" means "maximum is under par". Then check the boundary: does a 75 count as breaking 75? (No.
       Breaking 75 means 74 or better.) Interviewers listen for exactly that.`,
     yardage: `Names are in <code>players</code>, scores in <code>rounds</code>. Join them on <code>player_id</code>.`,
-    task: `The club captain wants the players who have <strong>never</strong> shot a round <strong>under 75</strong>.
+    task: `Among players who have played at least one round, the club captain wants those who have <strong>never</strong>
+      shot a round <strong>under 75</strong>.
       Return each such player's <code>name</code> and their best (lowest) score, in that order.`,
     solution: `SELECT
   p.name,
@@ -578,8 +579,8 @@ JOIN courses AS c ON c.course_id = r.course_id;</pre>
       often the interesting result.`,
     yardage: `<code>players.country</code> and <code>courses.country</code> use the same names (like <code>'USA'</code>
       and <code>'Scotland'</code>). <code>rounds</code> links a player to a course.`,
-    task: `Do players play better at home? First, count it. For <strong>every</strong> player, return three columns in
-      this order: <code>name</code>, the number of rounds they played at a course in <strong>their own country</strong>,
+    task: `Do players play better at home? First, count it. For <strong>every</strong> player who has played a round,
+      return three columns in this order: <code>name</code>, the number of rounds they played at a course in <strong>their own country</strong>,
       and the number they played <strong>abroad</strong>. Players with no home rounds must still appear, with 0.`,
     solution: `SELECT
   p.name,

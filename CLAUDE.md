@@ -95,6 +95,22 @@ course map) goes to `tournament.html?t=<id>#holes`, and v1's `course.html?hole=<
 - `vendor/sql.js/package.json` marks that folder CommonJS so Node can `require()` the UMD build while the root package
   is `"type": "module"`.
 
+## The clubhouse dataset
+
+`js/data/datasets/clubhouse.js` is the SQLite database every SQL tournament queries: `players` (16), `courses` (8),
+and `rounds` (54, March–August 2026). It includes deliberate edge cases that holes depend on:
+
+- Players 13–16 have **no rounds** (anti-joins, `LEFT JOIN` counts, `COALESCE`).
+- `players.home_course_id` is nullable (3 players have no home club), and most home courses are shared by 2–3 players
+  (self-joins, the `NOT IN` + NULL trap).
+- Course 7 (Desert Mirage) has no rounds and is nobody's home course. Course 8 (Coral Bay) has rounds but is nobody's
+  home course.
+- `players.handicap` is NULL for 3 players.
+
+Any change to the data changes expected answers, and can make a hole's `mistakes` stop failing or its task wording
+inaccurate (for example "every player" when some players have no rounds). After editing it, run `npm test` and
+re-read every task that says "every" or "each".
+
 ## How to add a tournament
 
 1. Add an entry to `TOURNAMENTS` in `js/data/tournaments.js`, at its place in the learning order. Fill in `id`,
