@@ -13,6 +13,8 @@
 //   engine       'sql' (sql.js) or, later, 'python' (Pyodide)
 //   dataset      module in js/data/datasets/ whose SEED builds the database, for SQL tournaments
 //   holeSet      module in js/data/holes/, or null while the tournament has no holes yet
+//   rangeSet     module in js/data/range/ with this tournament's Driving Range problems (optional). They unlock
+//                according to RANGE_UNLOCK in js/data/range-config.js.
 //   prerequisite id of an earlier tournament this one builds on. Shown as a recommendation, not a lock: like
 //                SQL Basics, a tournament is playable as soon as it has holes.
 

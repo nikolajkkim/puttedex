@@ -28,10 +28,11 @@ const tournament = {
 
 beforeEach(() => { store.clear(); progress.reset(); });
 
-test('v1 progress in localStorage migrates to v2 on first load, keeping every hole', () => {
+test('v1 progress in localStorage migrates to the current version on first load, keeping every hole', () => {
   store.set(progress.LEGACY_V1_KEY, JSON.stringify(V1));
   const state = progress.load();
-  assert.equal(state.version, 2);
+  assert.equal(state.version, 3);
+  assert.deepEqual(state.range, {});
   assert.deepEqual(Object.keys(state.holes).sort(), Object.keys(V1.shots).sort());
   assert.equal(progress.getHole('sql-basics', 'select-star').strokes, 3);
   assert.equal(progress.getHole('sql-basics', 'where').code, 'SELECT 42 -- draft');
@@ -41,7 +42,7 @@ test('v1 progress in localStorage migrates to v2 on first load, keeping every ho
 
 test('a v1 export file still imports', () => {
   const n = progress.importJson(JSON.stringify({ app: 'puttedex', ...V1 }));
-  assert.equal(n, 3);
+  assert.deepEqual(n, { holes: 3, range: 0 });
   assert.equal(progress.getHole('sql-basics', 'select-columns').hintUsed, true);
 });
 
@@ -105,4 +106,41 @@ test('drafts that are just the old prefilled starter code are dropped; real draf
   assert.equal(progress.getHole('sql-basics', 'where').code, null);
   assert.equal(progress.getHole('sql-basics', 'null').code, 'SELECT name\nFROM players\nWHERE handicap IS NULL');
   assert.equal(progress.getHole('sql-basics', 'null').strokes, 1);
+});
+
+test('v2 progress (before the Driving Range) migrates to v3 with holes and rounds intact', () => {
+  const v2 = {
+    version: 2,
+    holes: { 'sql-basics/where': { strokes: 2, hintUsed: false, solved: true, solvedAt: '2026-09-29T12:00:00Z', code: 'x' } },
+    rounds: { 'sql-basics': [{ finishedAt: '2026-09-20T00:00:00Z', strokes: 30, par: 22, holes: 10 }] },
+  };
+  store.set(progress.STORAGE_KEY, JSON.stringify(v2));
+  const state = progress.load();
+  assert.equal(state.version, 3);
+  assert.deepEqual(state.holes, { 'sql-basics/where': { strokes: 2, hintUsed: false, solved: true, solvedAt: '2026-09-29T12:00:00Z', code: 'x' } });
+  assert.deepEqual(state.rounds, v2.rounds);
+  assert.deepEqual(state.range, {});
+});
+
+test('range records persist, export, and import alongside holes', () => {
+  progress.recordStroke('sql-basics', 'where', true, 'SELECT 1');
+  progress.updateRangeRecord('sql-basics/long-courses', (r) => { r.attempts = 4; r.solves = 1; r.bestStrokes = 3; r.code = 'q'; });
+  const exported = progress.exportJson();
+  store.clear();
+  progress.reset();
+  assert.equal(progress.getRangeRecord('sql-basics/long-courses').attempts, 0, 'cleared');
+  assert.deepEqual(progress.importJson(exported), { holes: 1, range: 1 });
+  const rec = progress.getRangeRecord('sql-basics/long-courses');
+  assert.deepEqual([rec.attempts, rec.solves, rec.bestStrokes, rec.code, rec.reviewFlag], [4, 1, 3, 'q', false]);
+  assert.equal(progress.getHole('sql-basics', 'where').solved, true);
+});
+
+test('garbage inside range records is normalized, not trusted', () => {
+  progress.importJson(JSON.stringify({ version: 3, holes: {}, rounds: {}, range: {
+    'sql-basics/x': { attempts: -3, bestStrokes: 'lots', reviewDueAt: 7, playHint: 1 },
+    'no-slash': { attempts: 1 },
+  } }));
+  const rec = progress.getRangeRecord('sql-basics/x');
+  assert.deepEqual([rec.attempts, rec.bestStrokes, rec.reviewDueAt, rec.playHint], [0, null, null, true]);
+  assert.deepEqual(Object.keys(progress.allRangeRecords()), ['sql-basics/x']);
 });

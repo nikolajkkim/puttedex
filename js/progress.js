@@ -1,24 +1,45 @@
 // Learner progress, persisted in localStorage with JSON export/import.
 //
-// Shape (v2):
+// Shape (v3):
 // {
-//   version: 2,
+//   version: 3,
 //   updatedAt: ISO string | null,
 //   holes: { "<tournamentId>/<holeId>": { strokes, hintUsed, solved, solvedAt, code } },
-//   rounds: { "<tournamentId>": [ { finishedAt, strokes, par, holes } ] }   // completed, archived rounds
+//   rounds: { "<tournamentId>": [ { finishedAt, strokes, par, holes } ] },  // completed, archived rounds
+//   range: { "<tournamentId>/<problemId>": RangeRecord }                    // Driving Range, see blankRange()
 // }
 // A "stroke" is one Submit. Revealing the caddie tip (hint) adds a one-stroke penalty.
 // Strokes stop counting once a hole is solved. "Start a new round" archives a completed round and clears the holes.
+// Range problems can be replayed: a "play" runs from the first stroke until the problem is solved. The rules for
+// range records (review flags, solution unlock) live in js/range.js; this module only stores them.
 //
-// History: v1 (key puttedex.progress.v1) called holes "shots" and had no rounds. It is migrated on first
-// load, and v1 export files can still be imported. The v1 key is left in place as a backup.
+// History: v1 (key puttedex.progress.v1) called holes "shots" and had no rounds. v2 had no range. Both are
+// migrated on load, and their export files can still be imported. The v1 key is left in place as a backup.
 
 export const STORAGE_KEY = 'puttedex.progress';
 export const LEGACY_V1_KEY = 'puttedex.progress.v1';
-const VERSION = 2;
+const VERSION = 3;
 
-const empty = () => ({ version: VERSION, updatedAt: null, holes: {}, rounds: {} });
+const empty = () => ({ version: VERSION, updatedAt: null, holes: {}, rounds: {}, range: {} });
 const blankHole = () => ({ strokes: 0, hintUsed: false, solved: false, solvedAt: null, code: null });
+
+/** One range problem's history. Totals are across all plays; play* fields describe the play in progress. */
+export const blankRange = () => ({
+  attempts: 0,          // submissions, all plays
+  failedAttempts: 0,    // wrong submissions, all plays
+  hintsTotal: 0,        // caddie tips taken, all plays
+  hintsSinceClean: 0,   // caddie tips since the last clean solve (see REVIEW in js/data/range-config.js)
+  playStrokes: 0,       // strokes in the current play (submissions + tip penalty)
+  playHint: false,      // caddie tip taken in the current play
+  solves: 0,            // times solved
+  bestStrokes: null,    // fewest strokes in a solving play
+  lastStrokes: null,    // strokes of the most recent solve
+  lastSolvedAt: null,
+  lastAttemptedAt: null,
+  reviewFlag: false,    // the most recent solve was a struggle
+  reviewDueAt: null,    // when a flagged problem comes back as "needs review"
+  code: null,           // editor draft
+});
 
 // Editor code that the first version prefilled. A saved draft identical to one of these was never typed by
 // the learner, so it's dropped on load and the editor opens blank like every other hole.
@@ -62,17 +83,40 @@ function normalizeRound(r) {
   return round.strokes === null || round.par === null || round.holes === null ? null : round;
 }
 
+function normalizeRange(r) {
+  const out = blankRange();
+  const count = (v) => (Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0);
+  const maybe = (v) => (Number.isFinite(v) && v >= 0 ? Math.floor(v) : null);
+  const date = (v) => (typeof v === 'string' ? v : null);
+  for (const k of ['attempts', 'failedAttempts', 'hintsTotal', 'hintsSinceClean', 'playStrokes', 'solves']) out[k] = count(r[k]);
+  out.bestStrokes = maybe(r.bestStrokes);
+  out.lastStrokes = maybe(r.lastStrokes);
+  out.playHint = !!r.playHint;
+  out.reviewFlag = !!r.reviewFlag;
+  out.lastSolvedAt = date(r.lastSolvedAt);
+  out.lastAttemptedAt = date(r.lastAttemptedAt);
+  out.reviewDueAt = date(r.reviewDueAt);
+  out.code = typeof r.code === 'string' ? r.code : null;
+  return out;
+}
+
 /** Upgrade any supported version to the current shape, or return null if it isn't Puttedex progress. */
 export function migrate(raw) {
   if (!raw || typeof raw !== 'object') return null;
-  let holesIn, roundsIn = {};
+  let holesIn, roundsIn = {}, rangeIn = {};
   if (raw.version === 1 && raw.shots && typeof raw.shots === 'object') {
     holesIn = raw.shots; // v1 -> v2: "shots" became "holes"; keys ("<id>/<holeId>") are unchanged
-  } else if (raw.version === 2 && raw.holes && typeof raw.holes === 'object') {
+  } else if ((raw.version === 2 || raw.version === 3) && raw.holes && typeof raw.holes === 'object') {
     holesIn = raw.holes;
     roundsIn = raw.rounds && typeof raw.rounds === 'object' ? raw.rounds : {};
+    // v2 -> v3: the Driving Range was added; v2 simply has none.
+    if (raw.version === 3 && raw.range && typeof raw.range === 'object') rangeIn = raw.range;
   } else {
     return null;
+  }
+  const range = {};
+  for (const [key, r] of Object.entries(rangeIn)) {
+    if (r && typeof r === 'object' && key.includes('/')) range[key] = normalizeRange(r);
   }
   const holes = {};
   for (const [key, h] of Object.entries(holesIn)) {
@@ -82,7 +126,7 @@ export function migrate(raw) {
   for (const [tid, list] of Object.entries(roundsIn)) {
     if (Array.isArray(list)) rounds[tid] = list.map(normalizeRound).filter(Boolean);
   }
-  return { version: VERSION, updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : null, holes, rounds };
+  return { version: VERSION, updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : null, holes, rounds, range };
 }
 
 function readKey(key) {
@@ -130,6 +174,25 @@ function updateHole(tid, holeId, fn) {
 }
 
 export const saveDraft = (tid, holeId, code) => updateHole(tid, holeId, (h) => { h.code = code; });
+
+// ---------- Driving Range records (keyed "<tournamentId>/<problemId>") ----------
+
+export function getRangeRecord(key) {
+  return { ...blankRange(), ...(load().range[key] ?? {}) };
+}
+
+/** All range records, keyed; missing problems have no entry. */
+export const allRangeRecords = () => load().range;
+
+/** Apply `fn` to a range record and persist it. Returns the updated record. */
+export function updateRangeRecord(key, fn) {
+  const state = load();
+  const rec = { ...blankRange(), ...(state.range[key] ?? {}) };
+  fn(rec);
+  state.range[key] = rec;
+  save(state);
+  return rec;
+}
 
 /** Record one Submit. Returns the updated hole record. */
 export function recordStroke(tid, holeId, correct, code) {
@@ -216,7 +279,7 @@ export function exportJson() {
   return JSON.stringify({ app: 'puttedex', ...load() }, null, 2);
 }
 
-/** Replace progress with an exported file's contents (any supported version). Returns the number of holes restored. */
+/** Replace progress with an exported file's contents (any supported version). Returns { holes, range } counts. */
 export function importJson(text) {
   let parsed;
   try {
@@ -227,7 +290,7 @@ export function importJson(text) {
   const state = migrate(parsed);
   if (!state) throw new Error("That file isn't a Puttedex progress export (or it's from an unsupported version).");
   save(state);
-  return Object.keys(state.holes).length;
+  return { holes: Object.keys(state.holes).length, range: Object.keys(state.range).length };
 }
 
 export function reset() {

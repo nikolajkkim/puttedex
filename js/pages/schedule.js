@@ -100,9 +100,10 @@ $('#import-file').addEventListener('change', async (event) => {
   event.target.value = ''; // allow re-importing the same file
   if (!file) return;
   try {
-    const count = progress.importJson(await file.text());
+    const { holes, range } = progress.importJson(await file.text());
     render();
-    notify(`Imported progress for ${count} hole${count === 1 ? '' : 's'}.`);
+    const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+    notify(`Imported progress for ${plural(holes, 'hole')}${range ? ` and ${plural(range, 'range problem')}` : ''}.`);
   } catch (err) {
     notify(err.message, false);
   }
