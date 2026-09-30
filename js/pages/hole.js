@@ -4,12 +4,9 @@ import { loadSqlJs, runQuery, describeSchema } from '../lib/sql-runner.js';
 import { compareResults } from '../lib/compare.js';
 import { $, esc, BRAND_SVG, crumbs, scoreMark } from '../ui/dom.js';
 import { createSqlEditor, highlightSql } from '../ui/sql-editor.js';
+import { MOD, editorCardHTML, resultsHTML, yardageBookHTML, showFeedback, execute } from '../ui/workspace.js';
 
 $('#brand').insertAdjacentHTML('afterbegin', BRAND_SVG);
-
-const MAX_DISPLAY_ROWS = 200;
-const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
-const MOD = isMac ? '⌘' : 'Ctrl';
 
 const app = $('#app');
 const meta = tournamentById(new URLSearchParams(location.search).get('t') ?? 'sql-basics');
@@ -83,22 +80,6 @@ async function start() {
       </nav>`;
   }
 
-  function renderYardageBook(hole) {
-    return `
-      <section class="yardage" aria-labelledby="yardage-title">
-        <h2 id="yardage-title">📒 Yardage book: tables you can query</h2>
-        ${hole.yardage ? `<p class="yardage-note"><strong>For this hole:</strong> ${hole.yardage}</p>` : ''}
-        ${schema.map((tbl, i) => `
-          <details ${i === 0 ? 'open' : ''}>
-            <summary>${esc(tbl.name)} <span>${tbl.rowCount} rows</span></summary>
-            <ul>${tbl.columns.map((c) => `
-              <li>${esc(c.name)} <span class="type">${esc(c.type.toLowerCase())}${c.nullable ? ', nullable' : ''}</span>
-                ${c.primaryKey ? '<span class="pk">PK</span>' : ''}</li>`).join('')}
-            </ul>
-          </details>`).join('')}
-      </section>`;
-  }
-
   function render() {
     const hole = t.holes[index];
     const rec = progress.getHole(t.id, hole.id);
@@ -121,7 +102,7 @@ async function start() {
             <p>${hole.task}</p>
           </div>
           <div class="hint-box" id="hint-box"></div>
-          ${renderYardageBook(hole)}
+          ${yardageBookHTML(schema, hole.yardage)}
           <div class="pager">
             ${index > 0 ? `<a class="btn btn-small" href="${urls.hole(t.id, index)}" data-hole="${index - 1}">← Hole ${index}</a>` : '<span></span>'}
             ${index < t.holes.length - 1
@@ -131,27 +112,8 @@ async function start() {
         </article>
 
         <div class="workspace">
-          <section class="card editor-card" aria-label="SQL editor">
-            <div class="editor-head">
-              <strong>query.sql</strong>
-              <span>SQLite · <kbd>${MOD}</kbd>+<kbd>Enter</kbd> run · <kbd>${MOD}</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd> submit</span>
-            </div>
-            <div id="editor" class="editor-host"></div>
-            <div class="editor-actions">
-              <button class="btn" id="run-btn" type="button" title="Run without using a stroke">🏌️ Practice swing (Run)</button>
-              <button class="btn btn-primary" id="submit-btn" type="button" title="Check your answer (costs one stroke)">⛳ Take the shot (Submit)</button>
-              <span class="spacer"></span>
-              <button class="btn btn-ghost btn-small" id="clear-btn" type="button" title="Clear the editor (undo with ${MOD}+Z)">Clear</button>
-              <span class="stroke-count" id="stroke-count"></span>
-            </div>
-          </section>
-
-          <div id="feedback" role="status" aria-live="polite"></div>
-
-          <section class="card results-card" aria-labelledby="results-title">
-            <h2 id="results-title">Results</h2>
-            <div id="results"><p class="empty">Run a query to see its results here.</p></div>
-          </section>
+          ${editorCardHTML()}
+          ${resultsHTML()}
         </div>
       </div>`;
 
@@ -185,36 +147,6 @@ async function start() {
     }
   }
 
-  function renderTable({ columns, rows }) {
-    if (columns.length === 0) return '<p class="empty">The query ran but returned no result set.</p>';
-    const shown = rows.slice(0, MAX_DISPLAY_ROWS);
-    const cell = (v) => (v === null ? '<td class="null">NULL</td>' : `<td>${esc(v)}</td>`);
-    return `
-      <div class="results-meta">${rows.length} row${rows.length === 1 ? '' : 's'}${
-        rows.length > MAX_DISPLAY_ROWS ? ` (showing the first ${MAX_DISPLAY_ROWS})` : ''}</div>
-      <div class="table-scroll">
-        <table class="data-table">
-          <thead><tr>${columns.map((c) => `<th scope="col">${esc(c)}</th>`).join('')}</tr></thead>
-          <tbody>${shown.map((r) => `<tr>${r.map(cell).join('')}</tr>`).join('') || `<tr><td colspan="${columns.length}" class="null">No rows</td></tr>`}</tbody>
-        </table>
-      </div>`;
-  }
-
-  function feedback(kind, title, body = '') {
-    $('#feedback').innerHTML = `<div class="feedback ${kind}"><strong>${title}</strong>${body}</div>`;
-  }
-
-  function execute(code) {
-    try {
-      const result = runQuery(SQL, t.seed, code);
-      $('#results').innerHTML = renderTable(result);
-      return { result };
-    } catch (err) {
-      $('#results').innerHTML = '<p class="empty">No results. Fix the error above and swing again.</p>';
-      return { error: err.message };
-    }
-  }
-
   function showSolved(hole, rec, justNow) {
     const name = progress.scoreName(rec.strokes, hole.par);
     const hasNext = index < t.holes.length - 1;
@@ -231,7 +163,7 @@ async function start() {
       : hasNext
         ? `<a class="btn btn-primary btn-small" href="${urls.hole(t.id, index + 2)}" data-hole="${index + 1}">Hole ${index + 2} →</a>`
         : `<a class="btn btn-primary btn-small" href="${urls.hole(t.id, round.nextIndex + 1)}" data-hole="${round.nextIndex}">Play hole ${round.nextIndex + 1}, still open →</a>`;
-    feedback('ok', title, `
+    showFeedback('ok', title, `
       ${cheer}
       <details><summary>See the pro's line (reference solution)</summary><pre class="pro-line"></pre></details>
       ${next}`);
@@ -241,15 +173,15 @@ async function start() {
   // ---------- Actions ----------
 
   function run() {
-    const { error } = execute(editor.getValue());
-    if (error) feedback('error', 'Shanked it. SQL error', `<p><code>${esc(error)}</code></p>`);
-    else feedback('info', 'Practice swing', '<p>That one didn\'t count. Submit when you\'re ready to take the shot.</p>');
+    const { error } = execute(SQL, t.seed, editor.getValue());
+    if (error) showFeedback('error', 'Shanked it. SQL error', `<p><code>${esc(error)}</code></p>`);
+    else showFeedback('info', 'Practice swing', '<p>That one didn\'t count. Submit when you\'re ready to take the shot.</p>');
   }
 
   function submit() {
     const hole = t.holes[index];
     const code = editor.getValue();
-    const { result, error } = execute(code);
+    const { result, error } = execute(SQL, t.seed, code);
     const verdict = error
       ? { ok: false, message: `SQL error: ${error}` }
       : compareResults(result, expectedFor(hole), { orderMatters: hole.orderMatters });
@@ -267,7 +199,7 @@ async function start() {
       }
     } else {
       const lead = wasSolved ? 'Not quite. (This hole is already holed, so no stroke was added.)' : `Stroke ${rec.strokes}: not in the hole yet.`;
-      feedback(error ? 'error' : 'miss', lead, `<p>${esc(verdict.message)}</p>`);
+      showFeedback(error ? 'error' : 'miss', lead, `<p>${esc(verdict.message)}</p>`);
     }
   }
 
