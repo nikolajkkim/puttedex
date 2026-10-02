@@ -6,7 +6,8 @@ import { getSql } from './helpers.mjs';
 import { runQuery } from '../js/lib/sql-runner.js';
 import { compareResults } from '../js/lib/compare.js';
 import { TOURNAMENTS, loadTournament, isOpen } from '../js/tournaments.js';
-import { DIFFICULTY, TOPICS } from '../js/data/range-config.js';
+import { TOPICS } from '../js/data/range-config.js';
+import { DIFFICULTIES } from '../js/data/par-config.js';
 import { checkGradedSql } from './sql-checks.mjs';
 
 const withRange = TOURNAMENTS.filter((t) => t.rangeSet);
@@ -39,7 +40,8 @@ for (const meta of withRange) {
     test(`${meta.id} range: ${p.id}`, async () => {
       const SQL = await getSql();
       for (const field of ['title', 'task', 'solution', 'hint']) assert.ok(p[field], `has ${field}`);
-      assert.ok(Object.keys(DIFFICULTY).map(Number).includes(p.par), `par is one of ${Object.keys(DIFFICULTY).join('/')}`);
+      assert.ok(DIFFICULTIES.includes(p.difficulty), `difficulty is one of ${DIFFICULTIES.join('/')}`);
+      assert.ok(!('par' in p), 'no par in the data: it comes from difficulty (js/data/par-config.js)');
       assert.ok(Array.isArray(p.tags) && p.tags.length > 0, 'has topic tags');
       for (const tag of p.tags) assert.ok(TOPICS.includes(tag), `tag "${tag}" is in TOPICS (js/data/range-config.js)`);
       assert.ok(!('starter' in p), 'no prefilled starter code: the editor opens blank');

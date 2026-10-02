@@ -5,7 +5,9 @@
 //
 // Hole fields:
 //   id           stable key used for saved progress. Never rename it once shipped.
-//   title, par   par is the target stroke count (usually 2, or 3 for harder holes)
+//   title
+//   difficulty   'easy' | 'medium' | 'hard'; par comes from it (js/data/par-config.js). Easy (Par 1) is for
+//                single-concept, straightforward holes, roughly the first third; everything else is Par 2.
 //   lesson       HTML teaching the concept (examples in <pre>; use a different table or column than the task)
 //   interview    HTML for the "Interview angle" note: how this shows up in interviews
 //   yardage      HTML for the yardage book note: which tables and columns this hole needs
@@ -20,7 +22,7 @@ export default [
   {
     id: 'select-star',
     title: 'Tee off with SELECT',
-    par: 2,
+    difficulty: 'easy',
     lesson: `
       <p>Every SQL query that reads data starts with <code>SELECT</code>. It asks for columns
       <em>from</em> a table:</p>
@@ -43,7 +45,7 @@ FROM players;`,
   {
     id: 'select-columns',
     title: 'Pick your club: choosing columns',
-    par: 2,
+    difficulty: 'easy',
     lesson: `
       <p>Instead of <code>*</code>, list the columns you want, separated by commas. They come back
       <em>in the order you list them</em>:</p>
@@ -63,7 +65,7 @@ FROM players;`,
   {
     id: 'where',
     title: 'Find the fairway: WHERE',
-    par: 2,
+    difficulty: 'easy',
     lesson: `
       <p><code>WHERE</code> keeps only the rows that match a condition. It comes after <code>FROM</code>:</p>
       <pre>SELECT name, par FROM courses WHERE country = 'USA';</pre>
@@ -90,7 +92,7 @@ WHERE country = 'Scotland';`,
   {
     id: 'and-or',
     title: 'Stack conditions: AND and OR',
-    par: 2,
+    difficulty: 'easy',
     lesson: `
       <p>Combine conditions with <code>AND</code> (both must be true) and <code>OR</code> (either can be true):</p>
       <pre>SELECT * FROM rounds
@@ -118,7 +120,7 @@ WHERE score < 75
   {
     id: 'order-limit',
     title: 'The leaderboard: ORDER BY and LIMIT',
-    par: 2,
+    difficulty: 'easy',
     orderMatters: true,
     lesson: `
       <p><code>ORDER BY</code> sorts results. It's ascending (<code>ASC</code>) by default; add <code>DESC</code> to
@@ -149,7 +151,7 @@ LIMIT 5;`,
   {
     id: 'distinct',
     title: 'One of each: DISTINCT',
-    par: 2,
+    difficulty: 'easy',
     lesson: `
       <p><code>SELECT DISTINCT</code> removes duplicate rows from the result:</p>
       <pre>SELECT DISTINCT weather FROM rounds;</pre>
@@ -170,7 +172,7 @@ FROM players;`,
   {
     id: 'null',
     title: 'Lost ball: working with NULL',
-    par: 2,
+    difficulty: 'easy',
     lesson: `
       <p><code>NULL</code> means "unknown" or "missing". It isn't zero or an empty string. Any comparison with
       <code>NULL</code> using <code>=</code> is neither true nor false. It's <code>NULL</code>, so the row
@@ -200,7 +202,7 @@ WHERE handicap IS NULL;`,
   {
     id: 'aggregates',
     title: 'Count the strokes: aggregate functions',
-    par: 2,
+    difficulty: 'easy',
     lesson: `
       <p>Aggregate functions collapse many rows into one value: <code>COUNT</code>, <code>SUM</code>,
       <code>AVG</code>, <code>MIN</code>, and <code>MAX</code>. Name the result with <code>AS</code>:</p>
@@ -231,7 +233,7 @@ FROM rounds;`,
   {
     id: 'group-by',
     title: 'Card by card: GROUP BY and HAVING',
-    par: 3,
+    difficulty: 'medium',
     lesson: `
       <p><code>GROUP BY</code> computes aggregates <em>per group</em> instead of over the whole table:</p>
       <pre>SELECT course_id, COUNT(*) AS rounds, MIN(score) AS course_record
@@ -265,7 +267,7 @@ HAVING COUNT(*) >= 5;`,
   {
     id: 'join',
     title: 'The 18th green: JOIN',
-    par: 3,
+    difficulty: 'medium',
     orderMatters: true,
     lesson: `
       <p>Data is spread across tables that are linked by keys. <code>rounds.course_id</code> points to
@@ -305,7 +307,7 @@ ORDER BY avg_over_par DESC, c.name ASC;`,
   {
     id: 'in-between',
     title: 'Weather delay: IN and BETWEEN',
-    par: 3,
+    difficulty: 'medium',
     lesson: `
       <p>Two shortcuts make filters easier to read. <code>IN</code> matches any value in a list, and <code>BETWEEN</code>
       matches a range, <em>including both ends</em>:</p>
@@ -345,7 +347,7 @@ WHERE played_on BETWEEN '2026-05-01' AND '2026-06-30'
   {
     id: 'case-when',
     title: 'Reading the conditions: CASE WHEN',
-    par: 3,
+    difficulty: 'medium',
     lesson: `
       <p><code>CASE</code> is SQL's if/else. It returns a value for each row:</p>
       <pre>SELECT name,
@@ -383,7 +385,7 @@ GROUP BY weather;`,
   {
     id: 'never-broke-75',
     title: 'Never broke 75: the "never" question',
-    par: 3,
+    difficulty: 'hard',
     lesson: `
       <p>Interview questions often ask about something that <strong>never</strong> (or <strong>always</strong>) happened
       within a group: "customers who never returned an item", "players who never broke 75". <code>WHERE</code> can't
@@ -427,7 +429,7 @@ HAVING MIN(r.score) >= 75;`,
   {
     id: 'count-distinct',
     title: 'Course collector: COUNT(DISTINCT)',
-    par: 3,
+    difficulty: 'hard',
     lesson: `
       <p><code>COUNT(*)</code> counts rows. <code>COUNT(DISTINCT column)</code> counts the different values in a column,
       ignoring repeats (and NULLs):</p>
@@ -470,7 +472,7 @@ HAVING COUNT(DISTINCT r.course_id) >= 4;`,
   {
     id: 'by-month',
     title: 'Season form: grouping by month',
-    par: 3,
+    difficulty: 'hard',
     orderMatters: true,
     lesson: `
       <p>Time-series questions usually start by putting dates into buckets. With ISO-text dates, <code>strftime</code>
@@ -510,7 +512,7 @@ ORDER BY month ASC;`,
   {
     id: 'percentages',
     title: 'Putting clinic: percentages',
-    par: 3,
+    difficulty: 'hard',
     lesson: `
       <p>A percentage is a conditional count divided by a total. You already have both pieces:</p>
       <pre>SELECT
@@ -565,7 +567,7 @@ GROUP BY player_type;`,
   {
     id: 'home-soil',
     title: 'Home soil: joining three tables',
-    par: 4,
+    difficulty: 'hard',
     lesson: `
       <p>One <code>JOIN</code> connects two tables, and you can keep chaining them. Each <code>JOIN</code> brings in one
       more table with its own <code>ON</code> condition:</p>
@@ -614,7 +616,7 @@ GROUP BY p.player_id, p.name;`,
   {
     id: 'player-of-the-year',
     title: 'Player of the year: the final leaderboard',
-    par: 4,
+    difficulty: 'hard',
     orderMatters: true,
     lesson: `
       <p>The last hole puts the whole round together. There's no new syntax, just the order a query actually runs in:</p>

@@ -8,6 +8,7 @@ import { htmlToMarkdown, markdownTable } from '../js/context/text.js';
 import { tablesUsed } from '../js/context/sql.js';
 import { CONTEXT_FRAMING, CONTEXT_LIMITS } from '../js/data/context-config.js';
 import { SEED } from '../js/data/datasets/clubhouse.js';
+import { parFor } from '../js/data/par-config.js';
 
 const SQL = await getSql();
 const holes = (await import('../js/data/holes/sql-basics.js')).default;
@@ -17,13 +18,13 @@ const holeCtx = (hole, n, extra = {}) => ({
   engine: 'sql',
   location: { kind: 'hole', tournament: 'SQL Basics', hole: n, holes: 18 },
   title: hole.title,
-  par: hole.par,
+  par: parFor(hole.difficulty),
   tags: [],
   task: hole.task,
   background: { lesson: hole.lesson, note: hole.yardage },
   code: '',
   lastRun: null,
-  progress: { attempts: 0, strokes: 0, par: hole.par, hintsUsed: 0, solved: false },
+  progress: { attempts: 0, strokes: 0, par: parFor(hole.difficulty), hintsUsed: 0, solved: false },
   solution: null,
   data: { SQL, seed: SEED, referenceSql: hole.solution },
   ...extra,
@@ -33,7 +34,7 @@ const rangeCtx = (p, extra = {}) => ({
   location: { kind: 'range', tournament: 'SQL Basics' },
   tags: p.tags,
   background: null,
-  progress: { attempts: 0, strokes: 0, par: p.par, hintsUsed: '0 on this attempt, 0 in total', solved: false, best: null },
+  progress: { attempts: 0, strokes: 0, par: parFor(p.difficulty), hintsUsed: '0 on this attempt, 0 in total', solved: false, best: null },
   data: { SQL, seed: SEED, referenceSql: p.solution },
   ...extra,
 });
@@ -70,7 +71,7 @@ test('tournament hole, nothing run yet: sections in order, background, only the 
   const md = buildContext(holeCtx(hole, 3));
   assert.ok(md.startsWith(CONTEXT_FRAMING));
   assert.deepEqual(headings(md), ['Where I am', 'The problem', 'Background', 'The schema', 'My current code', 'My last run', 'My progress on this problem']);
-  assert.match(md, /- \*\*SQL Basics, hole 3 of 18\*\*\n- Problem: \*\*Find the fairway: WHERE\*\* \(par 2\)/);
+  assert.match(md, /- \*\*SQL Basics, hole 3 of 18\*\*\n- Problem: \*\*Find the fairway: WHERE\*\* \(par 1\)/);
   assert.ok(!md.includes('Topics:'), 'holes have no topic tags');
   assert.match(md, /### players \(16 rows\)\n\n```sql\nCREATE TABLE players/);
   assert.ok(!md.includes('### courses') && !md.includes('### rounds'), 'only tables the problem uses');
@@ -129,12 +130,14 @@ test('the pro solution only appears when passed in (unlocked and toggled on)', (
 
 test('progress: attempts, strokes versus par, hints', () => {
   const p = rangeProblems[0];
-  const md = buildContext(rangeCtx(p, { progress: { attempts: 4, strokes: 5, par: 3, hintsUsed: '1 on this attempt, 2 in total', solved: false, best: 3 } }));
-  assert.match(md, /- Attempts \(submissions\) so far: 4\n- Strokes so far: 5 \(par 3\)\n- Hints used: 1 on this attempt, 2 in total\n- Best solve: 3 strokes/);
-  const solved = buildContext(rangeCtx(p, { progress: { attempts: 2, strokes: 2, par: 3, hintsUsed: 0, solved: true, best: 2 } }));
-  assert.match(solved, /- Strokes: 2 on a par 3 \(1 under par\), solved/);
+  const md = buildContext(rangeCtx(p, { progress: { attempts: 4, strokes: 5, par: 2, hintsUsed: '1 on this attempt, 2 in total', solved: false, best: 2 } }));
+  assert.match(md, /- Attempts \(submissions\) so far: 4\n- Strokes so far: 5 \(par 2\)\n- Hints used: 1 on this attempt, 2 in total\n- Best solve: 2 strokes/);
+  const solved = buildContext(rangeCtx(p, { progress: { attempts: 1, strokes: 1, par: 2, hintsUsed: 0, solved: true, best: 1 } }));
+  assert.match(solved, /- Strokes: 1 on a par 2 \(1 under par\), solved/);
+  const level = buildContext(rangeCtx(p, { progress: { attempts: 1, strokes: 1, par: 1, hintsUsed: 0, solved: true, best: 1 } }));
+  assert.match(level, /- Strokes: 1 on a par 1 \(level with par\), solved/);
   const fresh = buildContext(rangeCtx(p));
-  assert.match(fresh, /- Strokes so far: 0 \(par 3\)/);
+  assert.match(fresh, /- Strokes so far: 0 \(par 1\)/);
 });
 
 test('a problem type without a builder falls back to title, task, code, and feedback', () => {

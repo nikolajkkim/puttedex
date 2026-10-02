@@ -1,6 +1,7 @@
 // Loads tournament data (js/data/) into the shape the pages use. Pages never import data files directly.
 
 import { TOURNAMENTS, HOLES_PER_TOURNAMENT } from './data/tournaments.js';
+import { parFor } from './data/par-config.js';
 
 export { TOURNAMENTS, HOLES_PER_TOURNAMENT };
 
@@ -21,7 +22,8 @@ const cache = new Map();
 
 /**
  * Resolve a tournament's holes and dataset.
- * Returns { ...meta, number, holes, seed, par } where holes are in play order and par sums their pars.
+ * Returns { ...meta, number, holes, seed, par } where holes are in play order, each with `par` computed from its
+ * `difficulty` (js/data/par-config.js), and the tournament's par sums them.
  * A tournament without a holeSet resolves with no holes.
  */
 export function loadTournament(t) {
@@ -31,7 +33,7 @@ export function loadTournament(t) {
         t.holeSet ? import(`./data/holes/${t.holeSet}.js`) : null,
         t.holeSet && t.dataset ? import(`./data/datasets/${t.dataset}.js`) : null,
       ]);
-      const holes = holesModule?.default ?? [];
+      const holes = (holesModule?.default ?? []).map((h) => ({ ...h, par: parFor(h.difficulty) }));
       if (holes.length > HOLES_PER_TOURNAMENT) {
         throw new Error(`${t.id} defines ${holes.length} holes; the maximum is ${HOLES_PER_TOURNAMENT}.`);
       }

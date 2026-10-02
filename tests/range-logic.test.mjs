@@ -12,20 +12,24 @@ globalThis.localStorage = {
 const progress = await import('../js/progress.js');
 const range = await import('../js/range.js');
 const { REVIEW, TIMED_ROUND, SOLUTION_UNLOCK_FAILED_ATTEMPTS } = await import('../js/data/range-config.js');
+const { parFor } = await import('../js/data/par-config.js');
 
 const DAY = 24 * 60 * 60 * 1000;
 const T0 = new Date('2026-10-01T09:00:00Z');
 const at = (days) => new Date(T0.getTime() + days * DAY);
 
-const tourA = { id: 'ta', title: 'Tour A', holes: [{ id: 'h1', par: 2 }, { id: 'h2', par: 2 }, { id: 'h3', par: 3 }] };
+const tourA = { id: 'ta', title: 'Tour A', holes: [{ id: 'h1', par: 2 }, { id: 'h2', par: 2 }, { id: 'h3', par: 2 }] };
 const tourB = { id: 'tb', title: 'Beta Cup', holes: [{ id: 'h1', par: 2 }] };
-const P = (tournament, id, par, tags) => ({ id, key: `${tournament.id}/${id}`, par, tags, title: `Problem ${id}`, tournament });
+// Like loadRange(): problems declare a difficulty, and par is computed from it.
+const P = (tournament, id, difficulty, tags) => ({
+  id, key: `${tournament.id}/${id}`, difficulty, par: parFor(difficulty), tags, title: `Problem ${id}`, tournament,
+});
 const problems = [
-  P(tourA, 'a1', 3, ['WHERE']),
-  P(tourA, 'a2', 4, ['JOIN', 'GROUP BY']),
-  P(tourA, 'a3', 5, ['JOIN', 'CASE WHEN']),
-  P(tourA, 'a4', 3, ['Dates']),
-  P(tourB, 'b1', 3, ['WHERE']),
+  P(tourA, 'a1', 'easy', ['WHERE']), // par 1
+  P(tourA, 'a2', 'medium', ['JOIN', 'GROUP BY']), // par 2
+  P(tourA, 'a3', 'hard', ['JOIN', 'CASE WHEN']), // par 2
+  P(tourA, 'a4', 'easy', ['Dates']),
+  P(tourB, 'b1', 'easy', ['WHERE']),
 ];
 const always = { rule: 'always' };
 const solveTournament = (t) => t.holes.forEach((h) => progress.recordStroke(t.id, h.id, true, ''));
@@ -68,13 +72,13 @@ test('annotate locks per tournament', () => {
 // ---------- status, review queue, solution unlock ----------
 
 test('a clean solve is "solved" with best strokes; a struggle comes back as "needs review" after the delay', () => {
-  const [a1] = problems; // par 3
+  const [a1] = problems; // par 1
   range.recordSubmit(a1, false, 'x', T0);
   let { rec, flagged } = range.recordSubmit(a1, true, 'y', T0);
   assert.deepEqual([rec.solves, rec.bestStrokes, rec.attempts, rec.failedAttempts, flagged], [1, 2, 2, 1, false]);
   assert.equal(range.statusOf(rec, T0), 'solved');
 
-  // Second play: 6 strokes on a par 3 is more than 2 over par.
+  // Second play: 6 strokes on a par 1 is more than 2 over par.
   for (let i = 0; i < 5; i++) range.recordSubmit(a1, false, 'x', at(1));
   ({ rec, flagged } = range.recordSubmit(a1, true, 'y', at(1)));
   assert.equal(flagged, true);
@@ -91,16 +95,20 @@ test('a clean solve is "solved" with best strokes; a struggle comes back as "nee
   assert.equal(range.statusOf(rec, at(30)), 'solved');
 });
 
-test('exactly par + 2 is not flagged; par + 3 is', () => {
-  const [a1] = problems; // par 3
-  for (let i = 0; i < 4; i++) range.recordSubmit(a1, false, 'x', T0);
-  assert.equal(range.recordSubmit(a1, true, 'y', T0).flagged, false, '5 strokes on par 3');
-  for (let i = 0; i < 5; i++) range.recordSubmit(a1, false, 'x', T0);
-  assert.equal(range.recordSubmit(a1, true, 'y', T0).flagged, true, '6 strokes on par 3');
+test('exactly par + 2 is not flagged; par + 3 is (easy and medium)', () => {
+  const [a1, a2] = problems; // par 1, par 2
+  for (let i = 0; i < 2; i++) range.recordSubmit(a1, false, 'x', T0);
+  assert.equal(range.recordSubmit(a1, true, 'y', T0).flagged, false, '3 strokes on par 1');
+  for (let i = 0; i < 3; i++) range.recordSubmit(a1, false, 'x', T0);
+  assert.equal(range.recordSubmit(a1, true, 'y', T0).flagged, true, '4 strokes on par 1');
+  for (let i = 0; i < 3; i++) range.recordSubmit(a2, false, 'x', T0);
+  assert.equal(range.recordSubmit(a2, true, 'y', T0).flagged, false, '4 strokes on par 2');
+  for (let i = 0; i < 4; i++) range.recordSubmit(a2, false, 'x', T0);
+  assert.equal(range.recordSubmit(a2, true, 'y', T0).flagged, true, '5 strokes on par 2');
 });
 
 test('the caddie tip costs one stroke per play and three tipped solves without a clean one flag the problem', () => {
-  const [, a2] = problems; // par 4
+  const [, a2] = problems; // par 2
   range.recordHint(a2, T0);
   range.recordHint(a2, T0); // same play: no second charge
   let rec = progress.getRangeRecord(a2.key);
@@ -133,16 +141,16 @@ test(`the pro solution unlocks on a solve or after ${SOLUTION_UNLOCK_FAILED_ATTE
 
 test('struggle scores rank topics by failed attempts, tips, and strokes over par', () => {
   const [a1, a2, a3] = problems;
-  // a2 (JOIN, GROUP BY): 2 failures + 1 tip, solved in 4 on par 4  -> 2*1 + 1*2 + 0 = 4
+  // a2 (JOIN, GROUP BY): 2 failures + 1 tip, solved in 4 on par 2  -> 2*1 + 1*2 + 2 over par = 6
   range.recordSubmit(a2, false, 'x', T0); range.recordSubmit(a2, false, 'x', T0);
   range.recordHint(a2, T0); range.recordSubmit(a2, true, 'x', T0);
-  // a3 (JOIN, CASE WHEN): 1 failure, solved in 2 on par 5 -> 1
+  // a3 (JOIN, CASE WHEN): 1 failure, solved in 2 on par 2 -> 1
   range.recordSubmit(a3, false, 'x', T0); range.recordSubmit(a3, true, 'x', T0);
   // a1 (WHERE): clean, 1 stroke -> 0, not listed
   range.recordSubmit(a1, true, 'x', T0);
   const list = range.annotate(problems, { now: T0, rule: always });
   assert.deepEqual(range.struggleByTopic(list), [
-    { topic: 'JOIN', score: 5 }, { topic: 'GROUP BY', score: 4 }, { topic: 'CASE WHEN', score: 1 },
+    { topic: 'JOIN', score: 7 }, { topic: 'GROUP BY', score: 6 }, { topic: 'CASE WHEN', score: 1 },
   ]);
   assert.equal(range.roughSpots(list).length, 3);
 });
@@ -158,9 +166,9 @@ test('Mixed Bag serves only unlocked, unsolved problems', () => {
 
 test('Drill serves unsolved or due-for-review problems from the weakest topics only', () => {
   const [a1, a2, a3, a4] = problems;
-  // JOIN becomes the weakest topic via a2; a2 is then solved cleanly on a later play.
-  for (let i = 0; i < 4; i++) range.recordSubmit(a2, false, 'x', T0);
-  range.recordSubmit(a2, true, 'x', T0); // 5 strokes on par 4: fine, not flagged
+  // JOIN becomes the weakest topic via a2, which is still solved within the limit.
+  for (let i = 0; i < 3; i++) range.recordSubmit(a2, false, 'x', T0);
+  range.recordSubmit(a2, true, 'x', T0); // 4 strokes on par 2: par + 2, not flagged
   range.recordSubmit(a1, true, 'x', T0);
   let list = range.annotate(problems, { now: T0, rule: always });
   let { problem, topics } = range.drill(list, seq(0));
@@ -204,8 +212,9 @@ test('timed round: strokes, completion, expiry, and the scorecard', () => {
   const last = range.lastRound();
   assert.equal(last.reason, 'time');
   assert.equal(last.elapsedMs, TIMED_ROUND.minutes * 60e3);
-  // a1: 2 strokes; a2 and a3 unsolved: par + 2 each (4+2, 5+2)
-  assert.deepEqual(range.roundTotals(last), { par: 12, solved: 1, total: 3, strokes: 2 + 6 + 7, toPar: 3 });
+  assert.equal(last.problems[0].par, undefined, 'par is not stored with the round');
+  // a1 (par 1): 2 strokes; a2 and a3 (par 2) unsolved: par + 2 each
+  assert.deepEqual(range.roundTotals(range.withCurrentPars(last, problems)), { par: 5, solved: 1, total: 3, strokes: 2 + 4 + 4, toPar: 5 });
 
   // A round where everything is solved finishes itself.
   range.startTimedRound(picks.slice(0, 1), T0);
@@ -221,7 +230,9 @@ test('filters combine, search matches title, tournament, and tags, and prev/next
   const list = range.annotate(problems, { now: T0, rule: { rule: 'tournament-complete' } });
   const keys = (l) => l.map((p) => p.key);
   assert.deepEqual(keys(range.filterProblems(list, { topic: 'JOIN' })), ['ta/a2', 'ta/a3']);
-  assert.deepEqual(keys(range.filterProblems(list, { difficulty: '3' })), ['ta/a1', 'ta/a4', 'tb/b1']);
+  assert.deepEqual(keys(range.filterProblems(list, { difficulty: 'easy' })), ['ta/a1', 'ta/a4', 'tb/b1']);
+  assert.deepEqual(range.readFilters('?difficulty=5'), { difficulty: 'hard' }, 'old par-number links still work');
+  assert.deepEqual(range.readFilters('?difficulty=7'), {}, 'unknown values are dropped');
   assert.deepEqual(keys(range.filterProblems(list, { status: 'locked' })), ['tb/b1']);
   assert.deepEqual(keys(range.filterProblems(list, { status: 'unsolved' })), ['ta/a1', 'ta/a2', 'ta/a3', 'ta/a4']);
   assert.deepEqual(keys(range.filterProblems(list, { q: 'beta' })), ['tb/b1']);

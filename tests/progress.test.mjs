@@ -31,7 +31,7 @@ beforeEach(() => { store.clear(); progress.reset(); });
 test('v1 progress in localStorage migrates to the current version on first load, keeping every hole', () => {
   store.set(progress.LEGACY_V1_KEY, JSON.stringify(V1));
   const state = progress.load();
-  assert.equal(state.version, 3);
+  assert.equal(state.version, 4);
   assert.deepEqual(state.range, {});
   assert.deepEqual(Object.keys(state.holes).sort(), Object.keys(V1.shots).sort());
   assert.equal(progress.getHole('sql-basics', 'select-star').strokes, 3);
@@ -108,7 +108,7 @@ test('drafts that are just the old prefilled starter code are dropped; real draf
   assert.equal(progress.getHole('sql-basics', 'null').strokes, 1);
 });
 
-test('v2 progress (before the Driving Range) migrates to v3 with holes and rounds intact', () => {
+test('v2 progress (before the Driving Range) migrates to the current version with holes and rounds intact', () => {
   const v2 = {
     version: 2,
     holes: { 'sql-basics/where': { strokes: 2, hintUsed: false, solved: true, solvedAt: '2026-09-29T12:00:00Z', code: 'x' } },
@@ -116,9 +116,10 @@ test('v2 progress (before the Driving Range) migrates to v3 with holes and round
   };
   store.set(progress.STORAGE_KEY, JSON.stringify(v2));
   const state = progress.load();
-  assert.equal(state.version, 3);
+  assert.equal(state.version, 4);
   assert.deepEqual(state.holes, { 'sql-basics/where': { strokes: 2, hintUsed: false, solved: true, solvedAt: '2026-09-29T12:00:00Z', code: 'x' } });
-  assert.deepEqual(state.rounds, v2.rounds);
+  // Strokes and hole count survive; the stored par is dropped (it's recomputed from the current holes).
+  assert.deepEqual(state.rounds, { 'sql-basics': [{ finishedAt: '2026-09-20T00:00:00Z', strokes: 30, holes: 10 }] });
   assert.deepEqual(state.range, {});
 });
 
@@ -143,4 +144,23 @@ test('garbage inside range records is normalized, not trusted', () => {
   const rec = progress.getRangeRecord('sql-basics/x');
   assert.deepEqual([rec.attempts, rec.bestStrokes, rec.reviewDueAt, rec.playHint], [0, null, null, true]);
   assert.deepEqual(Object.keys(progress.allRangeRecords()), ['sql-basics/x']);
+});
+
+test('archived rounds get their par from the current holes, so a par change re-scores them', () => {
+  // A v3 round that stored the old par (6) for 3 holes.
+  progress.importJson(JSON.stringify({ version: 3, holes: {}, range: {},
+    rounds: { 'sql-basics': [{ finishedAt: '2026-09-01T00:00:00Z', strokes: 7, par: 6, holes: 3 }] } }));
+  const repar = { id: 'sql-basics', holes: [{ id: 'select-star', par: 1 }, { id: 'select-columns', par: 1 }, { id: 'where', par: 2 }] };
+  const [round] = progress.rounds(repar);
+  assert.deepEqual([round.strokes, round.par], [7, 4], 'par recomputed from the holes (1 + 1 + 2), strokes kept');
+  assert.equal(JSON.parse(progress.exportJson()).rounds['sql-basics'][0].par, undefined, 'par is never stored');
+});
+
+test('score names with Par 1 and Par 2', () => {
+  assert.equal(progress.scoreName(1, 1), 'Par');
+  assert.equal(progress.scoreName(2, 1), 'Bogey');
+  assert.equal(progress.scoreName(3, 1), 'Double bogey');
+  assert.equal(progress.scoreName(1, 2), 'Hole in one');
+  assert.equal(progress.scoreName(2, 2), 'Par');
+  assert.equal(progress.scoreName(3, 2), 'Bogey');
 });

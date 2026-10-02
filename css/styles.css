@@ -727,10 +727,10 @@ pre.pro-line { margin: 0.5rem 0 0; white-space: pre; }
 .problem-table tr.is-locked td { color: var(--muted); }
 .problem-table td[data-label='Difficulty'], .problem-table td[data-label='Status'] { white-space: nowrap; }
 .cell-note { display: block; font-size: 0.78rem; color: var(--muted); margin-top: 0.15rem; font-weight: 400; }
-.par-badge { display: inline-block; font-weight: 700; font-size: 0.78rem; padding: 0.05rem 0.45rem; border-radius: 6px; margin-right: 0.25rem; }
-.par-3 { background: var(--green-tint); color: var(--fairway-dark); }
-.par-4 { background: var(--sand); color: #6b5520; }
-.par-5 { background: #f3d5cc; color: var(--flag-dark); }
+.diff-badge { display: inline-block; font-weight: 700; font-size: 0.78rem; padding: 0.05rem 0.45rem; border-radius: 6px; margin-right: 0.25rem; }
+.diff-easy { background: var(--green-tint); color: var(--fairway-dark); }
+.diff-medium { background: var(--sand); color: #6b5520; }
+.diff-hard { background: #f3d5cc; color: var(--flag-dark); }
 
 @media (max-width: 960px) {
   .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }

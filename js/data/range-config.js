@@ -16,6 +16,8 @@ export const SOLUTION_UNLOCK_FAILED_ATTEMPTS = 3;
  * A solve is flagged "needs review" when it took more than `strokesOverPar` strokes over par, or when the caddie
  * tip has been used on `hintsSinceClean` or more plays since the problem was last solved cleanly (no tip, not over
  * the stroke limit). A flagged problem returns to the list as "needs review" `afterDays` days after that solve.
+ * With Par 1 (easy) and Par 2 (medium/hard), "more than 2 over" means 4+ strokes on an easy problem (3 misses, or 2
+ * misses and a tip) and 5+ on the others (4 misses, or 3 and a tip). Par lives in js/data/par-config.js.
  */
 export const REVIEW = { strokesOverPar: 2, hintsSinceClean: 3, afterDays: 3 };
 
@@ -28,9 +30,6 @@ export const ROUGH_SPOTS = 3;
 /** Timed Round: how many random unlocked problems, the time limit, and what an unsolved problem scores on the
  *  round's scorecard (par + unsolvedOverPar). */
 export const TIMED_ROUND = { problems: 3, minutes: 30, unsolvedOverPar: 2 };
-
-/** Difficulty is the problem's par. */
-export const DIFFICULTY = { 3: 'Easy', 4: 'Medium', 5: 'Hard' };
 
 /** Topic tags a range problem may use (tests reject anything else, so filters stay tidy). */
 export const TOPICS = [

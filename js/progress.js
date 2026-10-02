@@ -1,11 +1,11 @@
 // Learner progress, persisted in localStorage with JSON export/import.
 //
-// Shape (v3):
+// Shape (v4):
 // {
-//   version: 3,
+//   version: 4,
 //   updatedAt: ISO string | null,
 //   holes: { "<tournamentId>/<holeId>": { strokes, hintUsed, solved, solvedAt, code } },
-//   rounds: { "<tournamentId>": [ { finishedAt, strokes, par, holes } ] },  // completed, archived rounds
+//   rounds: { "<tournamentId>": [ { finishedAt, strokes, holes } ] },       // completed, archived rounds
 //   range: { "<tournamentId>/<problemId>": RangeRecord }                    // Driving Range, see blankRange()
 // }
 // A "stroke" is one Submit. Revealing the caddie tip (hint) adds a one-stroke penalty.
@@ -13,12 +13,16 @@
 // Range problems can be replayed: a "play" runs from the first stroke until the problem is solved. The rules for
 // range records (review flags, solution unlock) live in js/range.js; this module only stores them.
 //
-// History: v1 (key puttedex.progress.v1) called holes "shots" and had no rounds. v2 had no range. Both are
-// migrated on load, and their export files can still be imported. The v1 key is left in place as a backup.
+// Only strokes are stored, never anything relative to par: par comes from each problem's difficulty
+// (js/data/par-config.js) and is applied at display time, so changing the par rule never rewrites progress.
+//
+// History: v1 (key puttedex.progress.v1) called holes "shots" and had no rounds. v2 had no range. v3 stored each
+// archived round's par, which went stale when pars changed; v4 drops it and recomputes it from the round's hole
+// count. All are migrated on load, and their export files can still be imported. The v1 key is kept as a backup.
 
 export const STORAGE_KEY = 'puttedex.progress';
 export const LEGACY_V1_KEY = 'puttedex.progress.v1';
-const VERSION = 3;
+const VERSION = 4;
 
 const empty = () => ({ version: VERSION, updatedAt: null, holes: {}, rounds: {}, range: {} });
 const blankHole = () => ({ strokes: 0, hintUsed: false, solved: false, solvedAt: null, code: null });
@@ -79,8 +83,9 @@ function normalizeHole(h) {
 function normalizeRound(r) {
   if (!r || typeof r !== 'object') return null;
   const n = (v) => (Number.isFinite(v) && v >= 0 ? Math.floor(v) : null);
-  const round = { finishedAt: typeof r.finishedAt === 'string' ? r.finishedAt : null, strokes: n(r.strokes), par: n(r.par), holes: n(r.holes) };
-  return round.strokes === null || round.par === null || round.holes === null ? null : round;
+  // Any stored `par` (v3) is dropped: it's recomputed from the current holes in rounds().
+  const round = { finishedAt: typeof r.finishedAt === 'string' ? r.finishedAt : null, strokes: n(r.strokes), holes: n(r.holes) };
+  return round.strokes === null || round.holes === null ? null : round;
 }
 
 function normalizeRange(r) {
@@ -106,11 +111,11 @@ export function migrate(raw) {
   let holesIn, roundsIn = {}, rangeIn = {};
   if (raw.version === 1 && raw.shots && typeof raw.shots === 'object') {
     holesIn = raw.shots; // v1 -> v2: "shots" became "holes"; keys ("<id>/<holeId>") are unchanged
-  } else if ((raw.version === 2 || raw.version === 3) && raw.holes && typeof raw.holes === 'object') {
+  } else if ((raw.version === 2 || raw.version === 3 || raw.version === 4) && raw.holes && typeof raw.holes === 'object') {
     holesIn = raw.holes;
     roundsIn = raw.rounds && typeof raw.rounds === 'object' ? raw.rounds : {};
     // v2 -> v3: the Driving Range was added; v2 simply has none.
-    if (raw.version === 3 && raw.range && typeof raw.range === 'object') rangeIn = raw.range;
+    if (raw.version >= 3 && raw.range && typeof raw.range === 'object') rangeIn = raw.range;
   } else {
     return null;
   }
@@ -237,9 +242,14 @@ export function roundSummary(tournament) {
   return { played, total, strokes, parPlayed, complete: total > 0 && played === total, started, nextIndex: Math.max(nextIndex, 0) };
 }
 
-/** Archived rounds plus the current one if it's complete, best (lowest to par) first. */
+/**
+ * Archived rounds plus the current one if it's complete, best (lowest to par) first. Each round's par is computed
+ * now from the tournament's first `holes` holes (a round always covers the holes open at the time, which are the
+ * first N), so it follows the current par rule.
+ */
 export function rounds(tournament) {
-  const list = [...(load().rounds[tournament.id] ?? [])];
+  const parOfFirst = (n) => tournament.holes.slice(0, n).reduce((sum, h) => sum + h.par, 0);
+  const list = (load().rounds[tournament.id] ?? []).map((r) => ({ ...r, par: parOfFirst(r.holes) }));
   const now = roundSummary(tournament);
   if (now.complete) list.push({ finishedAt: null, strokes: now.strokes, par: now.parPlayed, holes: now.total, current: true });
   return list.sort((a, b) => (a.strokes - a.par) - (b.strokes - b.par) || b.holes - a.holes);
@@ -257,7 +267,7 @@ export function startNewRound(tournament) {
       .filter(Boolean)
       .sort()
       .pop() ?? new Date().toISOString();
-    (state.rounds[tournament.id] ??= []).push({ finishedAt: lastSolve, strokes: now.strokes, par: now.parPlayed, holes: now.total });
+    (state.rounds[tournament.id] ??= []).push({ finishedAt: lastSolve, strokes: now.strokes, holes: now.total });
   }
   for (const key of Object.keys(state.holes)) {
     if (key.startsWith(`${tournament.id}/`)) delete state.holes[key];
@@ -267,7 +277,8 @@ export function startNewRound(tournament) {
 
 /** Golf name for a score relative to par. */
 export function scoreName(strokes, par) {
-  if (strokes === 1) return 'Hole in one';
+  // A 1 is only an ace when par allows more; on a Par 1, one stroke is simply par.
+  if (strokes === 1 && par > 1) return 'Hole in one';
   const diff = strokes - par;
   return { '-3': 'Albatross', '-2': 'Eagle', '-1': 'Birdie', 0: 'Par', 1: 'Bogey', 2: 'Double bogey', 3: 'Triple bogey' }[diff]
     ?? (diff < 0 ? `${-diff} under` : `${diff} over`);

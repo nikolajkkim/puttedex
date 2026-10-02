@@ -194,7 +194,7 @@ async function start() {
       <div id="round-banner"></div>
       <div class="player player-range">
         <article class="card lesson range-problem" aria-labelledby="problem-title">
-          <div class="kicker">${esc(problem.tournament.title)} · ${range.difficultyLabel(problem.par)}</div>
+          <div class="kicker">${esc(problem.tournament.title)} · ${range.difficultyLabel(problem)}</div>
           <h1 id="problem-title">${esc(problem.title)}</h1>
           <div class="chips">${problem.tags.map((t) => `<a class="chip" href="${range.rangeUrls.home({ topic: t })}">${esc(t)}</a>`).join('')}</div>
           <p class="problem-stats" id="problem-stats"></p>

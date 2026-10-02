@@ -1,5 +1,6 @@
 import { TOURNAMENTS } from '../tournaments.js';
-import { DIFFICULTY, TOPICS, TIMED_ROUND } from '../data/range-config.js';
+import { TOPICS, TIMED_ROUND } from '../data/range-config.js';
+import { DIFFICULTIES, DIFFICULTY_LABEL, PAR_BY_DIFFICULTY } from '../data/par-config.js';
 import * as progress from '../progress.js';
 import * as range from '../range.js';
 import { $, esc, BRAND_SVG, scoreMark } from '../ui/dom.js';
@@ -38,7 +39,7 @@ function renderTable(list, now) {
         <td data-label="Problem">${title}</td>
         <td data-label="Tournament">${esc(p.tournament.title)}</td>
         <td data-label="Topics"><div class="chips">${p.tags.map((t) => `<span class="chip">${esc(t)}</span>`).join('')}</div></td>
-        <td data-label="Difficulty"><span class="par-badge par-${p.par}">Par ${p.par}</span> ${DIFFICULTY[p.par]}</td>
+        <td data-label="Difficulty"><span class="diff-badge diff-${p.difficulty}">${DIFFICULTY_LABEL[p.difficulty]}</span> Par ${p.par}</td>
         <td data-label="Status">${statusCell(p, now)}</td>
         <td data-label="Best">${best}</td>
       </tr>`;
@@ -100,8 +101,8 @@ function renderFilters() {
         <select name="topic">${option('', 'All topics', filters.topic)}${topicsInUse.map((t) => option(t, t, filters.topic)).join('')}</select>
       </label>
       <label>Difficulty
-        <select name="difficulty">${option('', 'Any par', filters.difficulty)}${
-          Object.entries(DIFFICULTY).map(([par, label]) => option(par, `Par ${par} · ${label}`, filters.difficulty)).join('')}</select>
+        <select name="difficulty">${option('', 'Any difficulty', filters.difficulty)}${
+          DIFFICULTIES.map((d) => option(d, `${DIFFICULTY_LABEL[d]} · Par ${PAR_BY_DIFFICULTY[d]}`, filters.difficulty)).join('')}</select>
       </label>
       <label>Status
         <select name="status">${option('', 'Any status', filters.status)}${
@@ -190,7 +191,8 @@ function renderModes() {
 
 function renderRoundPanel() {
   const panel = $('#round-panel');
-  const round = range.activeRound();
+  const active = range.activeRound();
+  const round = active && range.withCurrentPars(active, problems);
   if (round) {
     panel.innerHTML = `
       <section class="round-card" id="timed-round" aria-labelledby="round-title">
@@ -211,8 +213,9 @@ function renderRoundPanel() {
     });
     return;
   }
-  const last = range.lastRound();
-  if (!last) { panel.innerHTML = ''; return; }
+  const saved = range.lastRound();
+  if (!saved) { panel.innerHTML = ''; return; }
+  const last = range.withCurrentPars(saved, problems);
   const totals = range.roundTotals(last);
   const reason = { complete: 'All holed out', time: "Time's up", quit: 'Ended early' }[last.reason] ?? '';
   panel.innerHTML = `

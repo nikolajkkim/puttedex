@@ -3,7 +3,8 @@
 // and strftime. No window functions here (OVER, ROW_NUMBER, RANK, LAG, LEAD): they belong to Window Functions.
 //
 // Difficulty ramp: holes 1-6 are joins (which rows each join keeps), 7-11 subqueries, 12-13 CASE patterns,
-// 14-15 CTEs, and 16-18 interview classics that combine everything.
+// 14-15 CTEs, and 16-18 interview classics that combine everything. Easy (Par 1): the single-concept join holes
+// 1-4 and 6; hard: 15-18; the rest medium (Par 2). See js/data/par-config.js.
 //
 // Hole fields are documented at the top of js/data/holes/sql-basics.js. Every hole whose solution joins tables
 // declares a mistake that uses the other join type, and every hole with orderMatters declares a mistake that
@@ -13,7 +14,7 @@ export default [
   {
     id: 'inner-join',
     title: 'Opening match: INNER JOIN with a filter',
-    par: 3,
+    difficulty: 'easy',
     orderMatters: true,
     lesson: `
       <p>In SQL Basics you wrote <code>JOIN</code>. Its full name is <code>INNER JOIN</code>: it keeps only the rows
@@ -64,7 +65,7 @@ ORDER BY r.played_on ASC;`,
   {
     id: 'three-tables',
     title: 'Home course: three tables, two paths',
-    par: 3,
+    difficulty: 'easy',
     orderMatters: true,
     lesson: `
       <p>You've joined three tables before. The new idea here: two tables can be related in <strong>more than one
@@ -113,7 +114,7 @@ ORDER BY c.name ASC, r.played_on ASC;`,
   {
     id: 'left-join',
     title: 'Everyone on the card: LEFT JOIN',
-    par: 3,
+    difficulty: 'easy',
     orderMatters: true,
     lesson: `
       <p><code>LEFT JOIN</code> keeps <strong>every row from the left table</strong> (the one before the keyword),
@@ -153,7 +154,7 @@ ORDER BY p.name ASC;`,
   {
     id: 'anti-join',
     title: 'Still in the clubhouse: anti-joins',
-    par: 3,
+    difficulty: 'easy',
     lesson: `
       <p>An <strong>anti-join</strong> finds rows with <em>no</em> match: customers with no orders, courses with no
       rounds. The classic recipe is a <code>LEFT JOIN</code>, then keep only the rows where the right side came back
@@ -190,7 +191,7 @@ WHERE r.round_id IS NULL;`,
   {
     id: 'left-join-counts',
     title: 'Counting zeros: COUNT(*) vs COUNT(column)',
-    par: 4,
+    difficulty: 'medium',
     orderMatters: true,
     lesson: `
       <p>Aggregating after a <code>LEFT JOIN</code> has two traps. For a left row with no match, the join still
@@ -247,7 +248,7 @@ ORDER BY rounds_played DESC, p.name ASC;`,
   {
     id: 'self-join',
     title: 'Clubmates: the self-join',
-    par: 4,
+    difficulty: 'easy',
     orderMatters: true,
     lesson: `
       <p>A <strong>self-join</strong> joins a table to itself, under two different aliases, to relate rows of the same
@@ -292,7 +293,7 @@ ORDER BY c.name ASC, a.name ASC, b.name ASC;`,
   {
     id: 'scalar-subquery',
     title: 'Beat the field: a subquery in WHERE',
-    par: 3,
+    difficulty: 'medium',
     orderMatters: true,
     lesson: `
       <p>A <strong>subquery</strong> is a query inside another query. One that returns a single value (one row, one
@@ -334,7 +335,7 @@ ORDER BY score ASC, round_id ASC;`,
   {
     id: 'in-not-in',
     title: 'Out of bounds: IN, NOT IN, and the NULL trap',
-    par: 4,
+    difficulty: 'medium',
     lesson: `
       <p>A subquery that returns one column of many rows can feed <code>IN</code> and <code>NOT IN</code>:</p>
       <pre>-- Players from a country that has a course in our database
@@ -379,7 +380,7 @@ WHERE course_id NOT IN (
   {
     id: 'derived-table',
     title: 'The view from the tee: subqueries in FROM',
-    par: 4,
+    difficulty: 'medium',
     lesson: `
       <p>A subquery in <code>FROM</code> (a <strong>derived table</strong>) acts like a temporary table that exists
       for one query. It's how you aggregate <em>twice</em>: first per group, then over the groups.</p>
@@ -428,7 +429,7 @@ FROM (
   {
     id: 'correlated-subquery',
     title: 'Personal par: correlated subqueries',
-    par: 4,
+    difficulty: 'medium',
     orderMatters: true,
     lesson: `
       <p>A <strong>correlated subquery</strong> refers to a column of the outer query, so it's evaluated again for each
@@ -482,7 +483,7 @@ ORDER BY p.name ASC, r.played_on ASC;`,
   {
     id: 'exists',
     title: 'Anyone out there? EXISTS and NOT EXISTS',
-    par: 4,
+    difficulty: 'medium',
     lesson: `
       <p><code>EXISTS (subquery)</code> is true when the subquery returns at least one row. What it returns doesn't
       matter, so <code>SELECT 1</code> is the convention. It's almost always correlated:</p>
@@ -544,7 +545,7 @@ AND NOT EXISTS (
   {
     id: 'case-buckets',
     title: 'Handicap brackets: bucketing with CASE',
-    par: 3,
+    difficulty: 'medium',
     orderMatters: true,
     lesson: `
       <p>In SQL Basics you counted with <code>CASE</code>. Here you'll <strong>bucket</strong> with it: turn a number
@@ -618,7 +619,7 @@ END;`,
   {
     id: 'conditional-aggregation',
     title: 'Weather board: pivoting with conditional aggregation',
-    par: 4,
+    difficulty: 'medium',
     orderMatters: true,
     lesson: `
       <p>Conditional aggregation can <strong>pivot</strong>: turn the values of one column into separate output
@@ -676,7 +677,7 @@ ORDER BY c.name ASC;`,
   {
     id: 'first-cte',
     title: 'Plan the hole: your first CTE',
-    par: 4,
+    difficulty: 'medium',
     orderMatters: true,
     lesson: `
       <p>A <strong>common table expression</strong> (CTE) names a subquery up front with <code>WITH</code>, so the main
@@ -744,7 +745,7 @@ ORDER BY pa.avg_score ASC, p.name ASC;`,
   {
     id: 'chained-ctes',
     title: 'Course management: chaining CTEs',
-    par: 5,
+    difficulty: 'hard',
     orderMatters: true,
     lesson: `
       <p>One <code>WITH</code> can define several CTEs, separated by commas, and each can read the ones before it.
@@ -836,7 +837,7 @@ ORDER BY pct_beating_course DESC, p.name ASC;`,
   {
     id: 'month-over-month',
     title: 'Month over month, without LAG',
-    par: 4,
+    difficulty: 'hard',
     orderMatters: true,
     lesson: `
       <p>SQLite's <code>date()</code> function does calendar arithmetic with <strong>modifiers</strong>:
@@ -898,7 +899,7 @@ ORDER BY cur.month ASC;`,
   {
     id: 'second-highest',
     title: 'Runner-up: the second-highest score',
-    par: 4,
+    difficulty: 'hard',
     lesson: `
       <p>"Find the second-highest value" is an interview classic, and the obvious answer is subtly wrong. With
       duplicates, <code>ORDER BY x DESC LIMIT 1 OFFSET 1</code> returns the second <em>row</em>, which may just be a
@@ -956,7 +957,7 @@ WHERE r.score = (
   {
     id: 'most-improved',
     title: 'Most improved: first round vs latest',
-    par: 5,
+    difficulty: 'hard',
     orderMatters: true,
     lesson: `
       <p>The capstone combines everything on this course. The shape is common: find each entity's

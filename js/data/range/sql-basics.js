@@ -4,7 +4,8 @@
 // Problem fields:
 //   id            stable key for saved progress ("sql-basics/<id>"). Never rename it once shipped.
 //   title         short name for the problem list
-//   par           3 (easy), 4 (medium), or 5 (hard): the difficulty and the stroke target
+//   difficulty    'easy' (one concept), 'medium' (two combined), or 'hard' (interview-style, multi-step).
+//                 Par comes from it: see js/data/par-config.js.
 //   tags          topics from TOPICS in js/data/range-config.js (used for filters and rough spots)
 //   task          HTML: everything the checker grades (columns and their order, rounding, sort order and ties)
 //   solution      the pro's line: one clause per line, lines of 80 characters or fewer
@@ -18,7 +19,7 @@ export default [
   {
     id: 'championship-length',
     title: 'Championship length',
-    par: 3,
+    difficulty: 'easy',
     tags: ['WHERE', 'ORDER BY'],
     orderMatters: true,
     task: `List the courses longer than <strong>7,000 yards</strong>. Return <code>name</code> and <code>yardage</code>,
@@ -38,7 +39,7 @@ ORDER BY yardage DESC;`,
   {
     id: 'amateur-low-markers',
     title: 'Amateur low markers',
-    par: 3,
+    difficulty: 'easy',
     tags: ['WHERE', 'ORDER BY'],
     orderMatters: true,
     task: `Find the <strong>amateurs</strong> (<code>is_pro = 0</code>) with a handicap <strong>below 7</strong>. Return
@@ -59,7 +60,7 @@ ORDER BY handicap ASC;`,
   {
     id: 'cypress-conditions',
     title: 'Conditions at Cypress Point',
-    par: 4,
+    difficulty: 'medium',
     tags: ['DISTINCT', 'JOIN'],
     task: `Which kinds of weather have rounds been played in at <strong>Cypress Point</strong>? Return each
       <code>weather</code> value once.`,
@@ -80,7 +81,7 @@ WHERE c.name = 'Cypress Point';`,
   {
     id: 'season-totals',
     title: 'Season totals',
-    par: 3,
+    difficulty: 'easy',
     tags: ['Aggregates', 'COUNT DISTINCT'],
     task: `Size up the whole season in one row with four columns, in this order: the number of rounds, how many
       <strong>different</strong> players played them, how many <strong>different</strong> courses they were played
@@ -103,7 +104,7 @@ FROM rounds;`,
   {
     id: 'busiest-courses',
     title: 'Busiest courses',
-    par: 4,
+    difficulty: 'medium',
     tags: ['JOIN', 'GROUP BY', 'HAVING', 'ORDER BY'],
     orderMatters: true,
     task: `Which courses have hosted <strong>at least 8 rounds</strong>? Return the course <code>name</code> and its
@@ -127,7 +128,7 @@ ORDER BY rounds_played DESC, c.name ASC;`,
   {
     id: 'april-pros-vs-par',
     title: 'April pros vs par',
-    par: 4,
+    difficulty: 'medium',
     tags: ['JOIN', 'CASE WHEN', 'Dates'],
     orderMatters: true,
     task: `Label every round played by a <strong>professional</strong> (<code>is_pro = 1</code>) in <strong>April
@@ -177,7 +178,7 @@ ORDER BY r.played_on ASC, r.round_id ASC;`,
   {
     id: 'bad-weather-specialists',
     title: 'Bad-weather specialists',
-    par: 4,
+    difficulty: 'medium',
     tags: ['IN / BETWEEN', 'JOIN', 'GROUP BY', 'HAVING'],
     orderMatters: true,
     task: `Who handles the elements? Considering only rounds played in <strong>Windy or Rain</strong> weather, find the
@@ -211,7 +212,7 @@ ORDER BY avg_score ASC, p.name ASC;`,
   {
     id: 'most-consistent',
     title: 'Most consistent',
-    par: 4,
+    difficulty: 'medium',
     tags: ['Aggregates', 'JOIN', 'GROUP BY', 'HAVING'],
     orderMatters: true,
     task: `Who's the most consistent? For every player with <strong>at least 4 rounds</strong>, return three columns in
@@ -243,7 +244,7 @@ ORDER BY spread ASC, p.name ASC;`,
   {
     id: 'pro-share-by-month',
     title: 'Pro share by month',
-    par: 5,
+    difficulty: 'hard',
     tags: ['Dates', 'Percentages', 'CASE WHEN', 'JOIN'],
     orderMatters: true,
     task: `How much of each month's play came from professionals? For each month with rounds, return three columns in
@@ -277,7 +278,7 @@ ORDER BY month ASC;`,
   {
     id: 'handicap-reality-check',
     title: 'Handicap reality check',
-    par: 5,
+    difficulty: 'hard',
     tags: ['NULL', 'JOIN', 'Aggregates', 'HAVING'],
     orderMatters: true,
     task: `Do players play to their handicap? For every player who <strong>has a handicap</strong> and at least
@@ -319,7 +320,7 @@ ORDER BY gap DESC, p.name ASC;`,
   {
     id: 'tee-to-green',
     title: 'Tee to green',
-    par: 3,
+    difficulty: 'easy',
     tags: ['SELECT'],
     task: `Every stroke that isn't a putt is played "tee to green". For <strong>every round</strong>, return four
       columns in this order: <code>round_id</code>, <code>score</code>, <code>putts</code>, and the number of
@@ -341,7 +342,7 @@ FROM rounds;`,
   {
     id: 'par-by-country',
     title: 'Par by country',
-    par: 3,
+    difficulty: 'easy',
     tags: ['DISTINCT'],
     task: `Which <strong>combinations</strong> of country and par exist among our courses? Return <code>country</code>
       and <code>par</code>, in that order, with each combination listed once.`,
@@ -358,7 +359,7 @@ FROM courses;`,
   {
     id: 'handicap-headcount',
     title: 'Handicap headcount',
-    par: 3,
+    difficulty: 'easy',
     tags: ['NULL', 'Aggregates'],
     task: `How many members have an official handicap? Return one row with three columns, in this order: the total number
       of players, the number who <strong>have</strong> a handicap, and the number who <strong>don't</strong>.`,
@@ -380,7 +381,7 @@ FROM players;`,
   {
     id: 'latest-results',
     title: 'Latest results',
-    par: 3,
+    difficulty: 'easy',
     tags: ['ORDER BY', 'LIMIT'],
     orderMatters: true,
     task: `Show the <strong>10 most recent</strong> rounds. Return <code>played_on</code>, <code>round_id</code>, and
@@ -401,7 +402,7 @@ LIMIT 10;`,
   {
     id: 'high-or-unrated',
     title: 'High handicap or unrated',
-    par: 3,
+    difficulty: 'easy',
     tags: ['NULL', 'WHERE'],
     task: `The club is running a beginners' clinic for players whose handicap is <strong>10 or higher</strong>, and for
       players who <strong>don't have a handicap yet</strong>. Return the <code>name</code> and <code>handicap</code> of
@@ -421,7 +422,7 @@ WHERE handicap >= 10
   {
     id: 'yards-per-par',
     title: 'Yards per par stroke',
-    par: 4,
+    difficulty: 'medium',
     tags: ['SELECT', 'ORDER BY', 'LIMIT'],
     orderMatters: true,
     task: `A course's par says how many strokes it should take, so <strong>yards per par stroke</strong> (yardage
@@ -447,7 +448,7 @@ LIMIT 3;`,
   {
     id: 'amateur-courses',
     title: 'Where the amateurs play',
-    par: 4,
+    difficulty: 'medium',
     tags: ['DISTINCT', 'JOIN'],
     orderMatters: true,
     task: `On which courses has <strong>at least one amateur</strong> (<code>is_pro = 0</code>) played a round? Return
@@ -476,7 +477,7 @@ ORDER BY c.name ASC;`,
   {
     id: 'weather-crowds',
     title: 'Weather crowds',
-    par: 4,
+    difficulty: 'medium',
     tags: ['COUNT DISTINCT', 'GROUP BY'],
     task: `Does bad weather keep people away? For each <code>weather</code> condition, return four columns in this order:
       the weather, the number of rounds played in it, how many <strong>different</strong> players played them, and on
@@ -499,7 +500,7 @@ GROUP BY weather;`,
   {
     id: 'spring-vs-summer',
     title: 'Spring vs summer',
-    par: 4,
+    difficulty: 'medium',
     tags: ['CASE WHEN', 'Dates', 'IN / BETWEEN', 'GROUP BY'],
     orderMatters: true,
     task: `Split the season in two: rounds from <strong>March 1 to May 31, 2026</strong> (both days included) are
@@ -534,7 +535,7 @@ ORDER BY half ASC;`,
   {
     id: 'putting-share',
     title: 'Putting share',
-    par: 4,
+    difficulty: 'medium',
     tags: ['SELECT', 'Percentages', 'ORDER BY'],
     orderMatters: true,
     task: `Which rounds were won or lost on the greens? A round's <strong>putting share</strong> is putts as a percentage
@@ -568,7 +569,7 @@ ORDER BY 100.0 * putts / score DESC, round_id ASC;`,
   {
     id: 'rough-weather-grinders',
     title: 'Rough-weather grinders',
-    par: 4,
+    difficulty: 'medium',
     tags: ['IN / BETWEEN', 'WHERE'],
     orderMatters: true,
     task: `Find the rounds played in <strong>Windy or Rain</strong> weather that <strong>either</strong> scored between
@@ -598,7 +599,7 @@ ORDER BY round_id ASC;`,
   {
     id: 'weather-impact',
     title: 'Weather impact report',
-    par: 5,
+    difficulty: 'hard',
     tags: ['JOIN', 'GROUP BY', 'CASE WHEN', 'Percentages'],
     orderMatters: true,
     task: `The club wants a weather impact report. For each <code>weather</code> condition, return four columns in this
@@ -636,7 +637,7 @@ ORDER BY avg_over_par ASC;`,
   {
     id: 'country-leaderboard',
     title: 'Where to send the coach',
-    par: 5,
+    difficulty: 'hard',
     tags: ['COUNT DISTINCT', 'JOIN', 'GROUP BY', 'HAVING', 'LIMIT'],
     task: `The club can fund coaching clinics in three countries. Group rounds by the <strong>player's</strong>
       country, and only consider countries with <strong>at least 5 rounds</strong> (a fair sample). Find the
@@ -682,7 +683,7 @@ LIMIT 3;`,
   {
     id: 'home-vs-away',
     title: 'Home vs away',
-    par: 5,
+    difficulty: 'hard',
     tags: ['CASE WHEN', 'NULL', 'Aggregates', 'JOIN'],
     orderMatters: true,
     task: `Do players score better at their <strong>home course</strong> (<code>players.home_course_id</code>)? Consider
@@ -752,7 +753,7 @@ ORDER BY difference ASC, p.name ASC;`,
   {
     id: 'pro-am-gap',
     title: 'The pro-am gap',
-    par: 5,
+    difficulty: 'hard',
     tags: ['CASE WHEN', 'Aggregates', 'JOIN', 'HAVING'],
     orderMatters: true,
     task: `On which courses is the gap between professionals and amateurs widest? Consider courses where

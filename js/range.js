@@ -5,8 +5,9 @@
 // Everything here takes `now` (a Date) and, where random, an `rng` () => [0, 1), so tests can simulate time.
 
 import {
-  RANGE_UNLOCK, SOLUTION_UNLOCK_FAILED_ATTEMPTS, REVIEW, STRUGGLE_WEIGHTS, ROUGH_SPOTS, TIMED_ROUND, DIFFICULTY,
+  RANGE_UNLOCK, SOLUTION_UNLOCK_FAILED_ATTEMPTS, REVIEW, STRUGGLE_WEIGHTS, ROUGH_SPOTS, TIMED_ROUND,
 } from './data/range-config.js';
+import { DIFFICULTIES, DIFFICULTY_LABEL, parFor } from './data/par-config.js';
 import { TOURNAMENTS, loadTournament } from './tournaments.js';
 import * as progress from './progress.js';
 
@@ -21,13 +22,15 @@ export const rangeUrls = {
   roundCard: () => 'range.html?round=last#timed-round',
 };
 
-export const difficultyLabel = (par) => `Par ${par} · ${DIFFICULTY[par] ?? ''}`.trim();
+/** "Medium · Par 2" */
+export const difficultyLabel = (problem) => `${DIFFICULTY_LABEL[problem.difficulty]} · Par ${problem.par}`;
 
 // ---------- Loading ----------
 
 /**
  * Every range problem, in schedule order then data order, each as
- * { ...problem, key, tournament } where tournament is the loaded tournament (holes, seed, par, ...).
+ * { ...problem, key, par, tournament } where tournament is the loaded tournament (holes, seed, par, ...) and par is
+ * computed from the problem's difficulty (js/data/par-config.js).
  */
 export async function loadRange() {
   const withRange = TOURNAMENTS.filter((t) => t.rangeSet);
@@ -37,7 +40,7 @@ export async function loadRange() {
       import(`./data/range/${meta.rangeSet}.js`),
     ]);
     // A tournament's range can have its own dataset; by default it shares the tournament's.
-    return data.default.map((p) => ({ ...p, key: `${meta.id}/${p.id}`, tournament }));
+    return data.default.map((p) => ({ ...p, key: `${meta.id}/${p.id}`, par: parFor(p.difficulty), tournament }));
   }));
   return loaded.flat();
 }
@@ -151,9 +154,17 @@ export function annotate(problems, { now = new Date(), rule = RANGE_UNLOCK, reco
 
 export const FILTER_KEYS = ['tournament', 'topic', 'difficulty', 'status', 'q'];
 
+// Difficulty filters used to be par numbers; old links keep working.
+const LEGACY_DIFFICULTY = { 3: 'easy', 4: 'medium', 5: 'hard' };
+
 export function readFilters(search) {
   const params = new URLSearchParams(search);
-  return Object.fromEntries(FILTER_KEYS.map((k) => [k, params.get(k) ?? '']).filter(([, v]) => v));
+  const filters = Object.fromEntries(FILTER_KEYS.map((k) => [k, params.get(k) ?? '']).filter(([, v]) => v));
+  if (filters.difficulty && !DIFFICULTIES.includes(filters.difficulty)) {
+    filters.difficulty = LEGACY_DIFFICULTY[filters.difficulty] ?? '';
+    if (!filters.difficulty) delete filters.difficulty;
+  }
+  return filters;
 }
 
 function filterQuery(filters) {
@@ -169,7 +180,7 @@ export function filterProblems(list, filters = {}) {
   return list.filter((p) => {
     if (filters.tournament && p.tournament.id !== filters.tournament) return false;
     if (filters.topic && !p.tags.includes(filters.topic)) return false;
-    if (filters.difficulty && String(p.par) !== String(filters.difficulty)) return false;
+    if (filters.difficulty && p.difficulty !== filters.difficulty) return false;
     if (filters.status === 'locked') { if (!p.locked) return false; } else if (filters.status && (p.locked || p.status !== filters.status)) return false;
     if (q) {
       const haystack = [p.title, p.tournament.title, ...p.tags].join(' ').toLowerCase();
@@ -275,7 +286,8 @@ export function startTimedRound(problems, now = new Date()) {
   const round = {
     startedAt: now.toISOString(),
     endsAt: new Date(now.getTime() + TIMED_ROUND.minutes * 60 * 1000).toISOString(),
-    problems: problems.map((p) => ({ key: p.key, title: p.title, par: p.par, strokes: 0, solved: false, solvedAt: null })),
+    // Par isn't stored: the scorecard looks it up from the current problems (see withCurrentPars).
+    problems: problems.map((p) => ({ key: p.key, title: p.title, strokes: 0, solved: false, solvedAt: null })),
   };
   writeRoundState({ ...readRoundState(), active: round });
   return round;
@@ -323,7 +335,19 @@ export function finishTimedRound(now = new Date(), reason = 'quit') {
   return state.last;
 }
 
-/** Scorecard totals for a finished (or active) round. An unsolved problem scores par + TIMED_ROUND.unsolvedOverPar. */
+/**
+ * The round with each problem's current par (from `problems`, the loaded range). Rounds saved before pars were
+ * computed may carry their old par; it's only used if the problem no longer exists.
+ */
+export function withCurrentPars(round, problems) {
+  const parOf = new Map(problems.map((p) => [p.key, p.par]));
+  return { ...round, problems: round.problems.map((p) => ({ ...p, par: parOf.get(p.key) ?? p.par ?? 2 })) };
+}
+
+/**
+ * Scorecard totals for a round whose problems carry `par` (see withCurrentPars). An unsolved problem scores
+ * par + TIMED_ROUND.unsolvedOverPar.
+ */
 export function roundTotals(round) {
   const par = round.problems.reduce((s, p) => s + p.par, 0);
   const solved = round.problems.filter((p) => p.solved).length;

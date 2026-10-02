@@ -17,7 +17,7 @@ that goal: favor the patterns interviewers actually ask about over breadth for i
 | Tournament | One concept, e.g. "SQL Basics". Up to 18 holes. Each also has a golf-flavored `event` name. |
 | Hole | One problem inside a tournament. Slots with no hole defined yet show as locked "coming soon". |
 | Course map | The 18 hole slots of one tournament, laid out as a winding course, shown on the tournament page (`#holes`). |
-| Par | Target strokes for a hole: 2 for single-concept holes, 3 for combined ones, 4 for the hardest interview-style holes. A tournament's par is the sum over its defined holes. |
+| Par | Target strokes for a hole or range problem: **Par 1 for easy, Par 2 for medium and hard**, computed from its `difficulty` (see "Difficulty and par"). A tournament's par is the sum over its defined holes. |
 | Stroke | One **Submit** ("Take the shot"). A caddie tip (hint) is a one-stroke penalty. **Run** ("Practice swing") is free. |
 | Round | One play-through of a tournament's open holes. "Start a new round" archives a completed round (for the best score) and resets the holes. |
 | Scorecard | 18-hole card per tournament (front nine "Out", back nine "In"): birdies circled, bogeys boxed, locked slots greyed. |
@@ -90,10 +90,11 @@ course map) goes to `tournament.html?t=<id>#holes`, and v1's `course.html?hole=<
   hard-coded. It compares values (not column names) with float tolerance. **Column order is graded**, and row order
   is graded only when the hole sets `orderMatters: true`. Both modules are DOM-free and take the `SQL` object as a
   parameter, so the Node tests exercise exactly the browser code path.
-- `js/progress.js` (storage, v3): holes' strokes/hints/solved/draft code, per-tournament archived rounds,
+- `js/progress.js` (storage, v4): holes' strokes/hints/solved/draft code, per-tournament archived rounds,
   `roundSummary()`, `bestRound()`, `startNewRound()`, range records (`getRangeRecord` / `updateRangeRecord`, fields
-  in `blankRange()`), and `migrate()`: v1 ("shots", key `puttedex.progress.v1`, kept as a backup) and v2 (no range)
-  still load and import. `RETIRED_PREFILLS` drops drafts that equal code the first version prefilled.
+  in `blankRange()`), and `migrate()`: v1 ("shots", key `puttedex.progress.v1`, kept as a backup), v2 (no range),
+  and v3 (archived rounds stored a par) still load and import. Only strokes are stored; anything relative to par is
+  computed at display time from the current par rule. `RETIRED_PREFILLS` drops drafts that equal code the first version prefilled.
 - `js/range.js`: the Driving Range's rules. It loads problems, then handles unlock state, status and the review
   queue, `recordSubmit`/`recordHint`, the solution unlock, struggle scores, filters and prev/next, Mixed Bag / Drill /
   timed-round picks, and timed-round state. Every function takes `now` (and `rng` where random) so tests can simulate
@@ -122,6 +123,24 @@ Any change to the data changes expected answers, and can make a hole's `mistakes
 inaccurate (for example "every player" when some players have no rounds). After editing it, run `npm test` and
 re-read every task that says "every" or "each".
 
+## Difficulty and par
+
+Every tournament hole and Driving Range problem declares **`difficulty: 'easy' | 'medium' | 'hard'`**. Par is
+never written in data files. It's computed from difficulty by **`js/data/par-config.js`** (`PAR_BY_DIFFICULTY`,
+`parFor`), the one place to change the rule:
+
+| Difficulty | Meaning | Par |
+| --- | --- | --- |
+| easy | one core concept, solvable on the first try | 1 |
+| medium | two concepts combined | 2 |
+| hard | interview-style, multi-step | 2 |
+
+`loadTournament` and `loadRange` attach the computed `par`, and everything downstream reads it: strokes-vs-par
+labels (`scoreName`: on a Par 1, 1 stroke is "Par" and 2 is "Bogey"; "Hole in one" needs par 2 or more), the
+scorecards and tournament totals, best rounds, the range's review rule and struggle score, timed-round scorecards,
+and Copy context. Progress stores strokes only, so changing the rule re-scores everything without migrating data.
+A caddie tip costs one stroke, so taking it on a Par 1 always ends over par.
+
 ## How to add a tournament
 
 1. Add an entry to `TOURNAMENTS` in `js/data/tournaments.js`, at its place in the learning order. Fill in `id`,
@@ -140,10 +159,11 @@ Tournaments whose engine isn't `'sql'` can be listed but not opened yet: `hole.h
 ## How to add a hole
 
 Append an object to the array in `js/data/holes/<holeSet>.js`. Array position is the hole number, and there are at
-most 18. The fields are documented at the top of that file. Keep the difficulty ramp: holes 1–6 teach one concept each,
-7–12 combine concepts, and 13–18 are interview-style questions that combine several.
+most 18. The fields are documented at the top of that file. Keep the difficulty ramp: the early single-concept,
+straightforward holes (roughly the first third) are `easy` (Par 1); holes that combine concepts are `medium`, and the
+closing interview-style holes are `hard` (both Par 2).
 
-- `id` (permanent, kebab-case), `title`, `par`, `lesson` (HTML), `interview` (the "Interview angle" note), `yardage`
+- `id` (permanent, kebab-case), `title`, `difficulty` (see "Difficulty and par"), `lesson` (HTML), `interview` (the "Interview angle" note), `yardage`
   (the yardage book's "For this hole" note: which tables and columns it needs), `task` (HTML), `solution`, `hint`
   (the caddie tip), and optionally `orderMatters`. Tests require all of these except `orderMatters`.
 - The **task must spell out everything the checker grades**: exactly which columns, **in what order**, any rounding,
@@ -187,21 +207,21 @@ show the same message. `unlockState()` in `js/range.js` implements the rules and
 
 The same config file holds the other range rules:
 - `SOLUTION_UNLOCK_FAILED_ATTEMPTS`: the pro's line shows after a solve or this many misses.
-- `REVIEW`: a solve is flagged when it took more than par + 2 strokes, or when it used the caddie tip and that makes
-  3 tipped plays since the last clean solve. A flagged problem returns as "needs review" 3 days later. A clean
+- `REVIEW`: a solve is flagged when it took more than par + 2 strokes (4+ on an easy problem, 5+ on medium/hard), or
+  when it used the caddie tip and that makes 3 tipped plays since the last clean solve. A flagged problem returns as "needs review" 3 days later. A clean
   re-solve clears the flag.
 - `STRUGGLE_WEIGHTS` and `ROUGH_SPOTS`: the per-topic struggle score (failed attempts, tips, strokes over par on the
   last solve) and how many weakest topics to drill.
 - `TIMED_ROUND`: problems per round, minutes, and what an unsolved problem scores.
-- `DIFFICULTY` (par → Easy/Medium/Hard) and `TOPICS`, the allowed tags.
+- `TOPICS`, the allowed tags. (Difficulty labels and par live in `js/data/par-config.js`.)
 
 ### How to add range problems
 
 1. Append problems to `js/data/range/<rangeSet>.js`, or, for a tournament without a range yet, create that file and
    set `rangeSet: '<name>'` on its entry in `js/data/tournaments.js`. The tournament must be open (it's what
    unlocks the range) and use the SQL engine. Problems query the tournament's dataset.
-2. Fields (documented at the top of `js/data/range/sql-basics.js`): `id` (permanent, kebab-case), `title`, `par`
-   (3 easy, 4 medium, 5 hard), `tags` (from `TOPICS`; add a new topic there first), `task`, `solution`, `hint`,
+2. Fields (documented at the top of `js/data/range/sql-basics.js`): `id` (permanent, kebab-case), `title`,
+   `difficulty` (`easy` = Par 1, `medium`/`hard` = Par 2), `tags` (from `TOPICS`; add a new topic there first), `task`, `solution`, `hint`,
    optional `orderMatters`, `alternatives`, and `mistakes`. There's no `lesson`, no `interview`, and no starter
    code.
 3. Every rule from "How to add a hole" about the task, the solution, alternatives, and mistakes applies. On top of
@@ -210,7 +230,7 @@ The same config file holds the other range rules:
 4. Only use skills the tournament (and the ones before it) taught.
 5. Run `npm test`.
 
-Range progress is stored per problem under `range` in progress v3 and included in export/import. Never rename a
+Range progress is stored per problem under `range` in progress v4 and included in export/import. Never rename a
 problem's `id` once shipped.
 
 For bulk additions, follow the standing procedure in "Adding range problems" below.
@@ -218,18 +238,18 @@ For bulk additions, follow the standing procedure in "Adding range problems" bel
 ## Adding range problems
 
 **Standing procedure.** When the user says something like "add range problems for [tournament]", follow every step
-below without asking them to repeat the details. Anything they specify in the request (a different count or par
-split, for example) overrides the defaults here.
+below without asking them to repeat the details. Anything they specify in the request (a different count or
+difficulty split, for example) overrides the defaults here.
 
-1. **Quantity.** Add **25 problems: 8 Par 3, 11 Par 4, 6 Par 5.** Use the user's number or split instead if they give
+1. **Quantity.** Add **25 problems: 8 easy (Par 1), 11 medium (Par 2), 6 hard (Par 2).** Use the user's number or split instead if they give
    one.
 2. **Format.** Follow the existing range data-file format exactly (see "How to add range problems" above and the
-   header of `js/data/range/sql-basics.js`): `id`, `title`, `task`, `tags`, `par` (the difficulty), a multi-line
+   header of `js/data/range/sql-basics.js`): `id`, `title`, `task`, `tags`, `difficulty` (never a `par`), a multi-line
    `solution` with one clause per line, one `hint` (the caddie tip), and the checker: `orderMatters` where row order
    is graded, plus `alternatives` and `mistakes`. The editor always opens blank, so there's no `starter` field (tests
    reject one).
 3. **Coverage.** Every topic tag belonging to the tournament must appear in **at least 3 problems**. Mix
-   single-concept problems (mostly Par 3) with multi-concept ones (Par 4–5). A tournament's tags are the entries of
+   single-concept problems (mostly easy) with multi-concept ones (medium and hard). A tournament's tags are the entries of
    `TOPICS` in `js/data/range-config.js` for what it teaches:
    - SQL Basics: `SELECT`, `WHERE`, `IN / BETWEEN`, `ORDER BY`, `LIMIT`, `DISTINCT`, `NULL`, `Aggregates`,
      `GROUP BY`, `HAVING`, `COUNT DISTINCT`, `JOIN`, `CASE WHEN`, `Dates`, `Percentages`.
@@ -242,10 +262,11 @@ split, for example) overrides the defaults here.
    change the question, not just the numbers or names. `tests/range-content.test.mjs` rejects a problem whose
    expected answer is identical to a hole's, but that only catches exact repeats. Avoiding near-duplicates is on you.
 5. **Difficulty.**
-   - Par 3: one core concept.
-   - Par 4: two concepts combined.
-   - Par 5: an interview-style, multi-step question of the kind asked in real data science internship interviews.
-   Par 5s need **one unambiguous correct answer in the data**: no ties that the task's sort order doesn't break, no
+   - Easy (Par 1): one core concept.
+   - Medium (Par 2): two concepts combined.
+   - Hard (Par 2): an interview-style, multi-step question of the kind asked in real data science internship
+     interviews.
+   Hard problems need **one unambiguous correct answer in the data**: no ties that the task's sort order doesn't break, no
    rounding that lands on a tie, and no reading of the task that yields a different valid result. Prototype the query
    and look at the actual rows before writing the task.
 6. **Scope.** Only use skills taught in that tournament or earlier ones in the schedule. Never use concepts from
@@ -268,10 +289,10 @@ split, for example) overrides the defaults here.
    - Confirm the task text matches exactly what the checker expects: same table, same columns in the same order,
      rounding, and sort order with tie-breaks. Print each problem's task next to its expected columns and row count,
      and read them side by side.
-   - Confirm tag coverage (step 3) and the par split (step 1) by counting.
+   - Confirm tag coverage (step 3) and the difficulty split (step 1) by counting.
    - Report every problem you had to change during verification, and why.
 10. **Finish.** Make a separate commit per tournament, push to main, and wait for CI to pass. Then give the user a
-    list of the new problems with each one's title, par, and tags, and flag anything you weren't sure about.
+    list of the new problems with each one's title, difficulty and par, and tags, and flag anything you weren't sure about.
 
 ## Copy context
 
