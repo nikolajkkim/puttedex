@@ -3,6 +3,7 @@
 
 import { $, esc } from './dom.js';
 import { runQuery } from '../lib/sql-runner.js';
+import { copyControlsHTML } from './copy-context.js';
 
 export const MAX_DISPLAY_ROWS = 200;
 export const MOD = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl';
@@ -19,6 +20,7 @@ export function editorCardHTML() {
       <div class="editor-actions">
         <button class="btn" id="run-btn" type="button" title="Run without using a stroke">🏌️ Practice swing (Run)</button>
         <button class="btn btn-primary" id="submit-btn" type="button" title="Check your answer (costs one stroke)">⛳ Take the shot (Submit)</button>
+        ${copyControlsHTML()}
         <span class="spacer"></span>
         <button class="btn btn-ghost btn-small" id="clear-btn" type="button" title="Clear the editor (undo with ${MOD}+Z)">Clear</button>
         <span class="stroke-count" id="stroke-count"></span>

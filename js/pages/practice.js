@@ -8,6 +8,7 @@ import { compareResults } from '../lib/compare.js';
 import { $, esc, BRAND_SVG, crumbs } from '../ui/dom.js';
 import { createSqlEditor, highlightSql } from '../ui/sql-editor.js';
 import { MOD, editorCardHTML, resultsHTML, yardageBookHTML, showFeedback, execute } from '../ui/workspace.js';
+import { mountCopyContext } from '../ui/copy-context.js';
 
 $('#brand').insertAdjacentHTML('afterbegin', BRAND_SVG);
 const app = $('#app');
@@ -59,6 +60,8 @@ async function start() {
 
   document.title = `${problem.title} · Driving Range · Puttedex`;
   let editor = null;
+  let lastRun = null; // the last Run/Submit on this page (for "Copy context")
+  let copyControls = null;
 
   const rec = () => progress.getRangeRecord(key);
 
@@ -213,6 +216,35 @@ async function start() {
 
     renderRoundBanner();
     mountEditor();
+    copyControls = mountCopyContext({
+      solutionUnlocked: () => range.solutionUnlocked(rec()),
+      getContext: ({ includeSolution }) => {
+        const r = rec();
+        // Right after a solve the next play hasn't started: report the solve.
+        const solvedPlay = r.playStrokes === 0 && r.lastStrokes !== null;
+        return {
+          engine: problem.tournament.engine,
+          location: { kind: 'range', tournament: problem.tournament.title },
+          title: problem.title,
+          par: problem.par,
+          tags: problem.tags,
+          task: problem.task,
+          background: null,
+          code: editor.getValue(),
+          lastRun,
+          progress: {
+            attempts: r.attempts,
+            strokes: solvedPlay ? r.lastStrokes : r.playStrokes,
+            par: problem.par,
+            hintsUsed: `${r.playHint ? 1 : 0} on this attempt, ${r.hintsTotal} in total`,
+            solved: solvedPlay,
+            best: r.bestStrokes,
+          },
+          solution: includeSolution ? problem.solution : null,
+          data: { SQL, seed, referenceSql: problem.solution },
+        };
+      },
+    });
     renderHint();
     renderSolution();
     renderStrokes();
@@ -242,7 +274,8 @@ async function start() {
   }
 
   function run() {
-    const { error } = execute(SQL, seed, editor.getValue());
+    const { result, error } = execute(SQL, seed, editor.getValue());
+    lastRun = error ? { kind: 'error', message: error, result: null } : { kind: 'practice', message: '', result };
     if (error) showFeedback('error', 'Shanked it. SQL error', `<p><code>${esc(error)}</code></p>`);
     else showFeedback('info', 'Practice swing', '<p>That one didn\'t count. Submit when you\'re ready to take the shot.</p>');
   }
@@ -274,6 +307,7 @@ async function start() {
               : `<a class="btn btn-primary btn-small" href="${range.rangeUrls.home(filters)}">Back to the range →</a>`}`);
       renderHint();
       renderSolution();
+      lastRun = { kind: 'correct', message: `${name}${good ? '!' : '.'} Solved in ${strokes}.`, result };
     } else {
       const left = range.failuresUntilSolution(r);
       const unlockedNow = !wasUnlocked && range.solutionUnlocked(r);
@@ -282,7 +316,11 @@ async function start() {
         ${unlockedNow ? '<p>The pro\'s line is now unlocked below the task, if you want to study it.</p>'
           : !range.solutionUnlocked(r) ? `<p class="muted">${left} more miss${left === 1 ? '' : 'es'} unlocks the pro's line.</p>` : ''}`);
       if (unlockedNow) renderSolution();
+      lastRun = error
+        ? { kind: 'error', message: error, result: null }
+        : { kind: 'wrong', message: `Stroke ${r.playStrokes}: not in the hole yet. ${verdict.message}`, result };
     }
+    copyControls.refresh();
   }
 
   render();

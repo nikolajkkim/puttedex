@@ -582,6 +582,34 @@ pre.pro-line { margin: 0.5rem 0 0; white-space: pre; }
   align-items: center;
 }
 .editor-actions .spacer { flex: 1; }
+.copy-context { display: inline-flex; align-items: center; gap: 0.35rem 0.6rem; flex-wrap: wrap; }
+#copy-context-btn svg { flex: none; }
+#copy-context-btn.is-copied { --bg: var(--green-tint); --fg: var(--fairway-dark); border-color: #b9d3b1; }
+.copy-solution { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; color: var(--muted); cursor: pointer; }
+.copy-solution input { accent-color: var(--fairway); margin: 0; }
+.copy-modal {
+  width: min(720px, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.2rem;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 20px 60px rgb(0 0 0 / 0.3);
+}
+.copy-modal::backdrop { background: rgb(19 50 29 / 0.45); }
+.copy-modal h2 { margin: 0 0 0.4rem; font-size: 1.2rem; }
+.copy-modal p { margin: 0 0 0.7rem; font-size: 0.9rem; color: var(--muted); }
+.copy-modal textarea {
+  width: 100%;
+  height: min(50vh, 420px);
+  font: 0.8rem/1.45 var(--font-mono);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.6rem;
+  resize: vertical;
+}
+.copy-modal-actions { display: flex; justify-content: flex-end; margin-top: 0.7rem; }
 .stroke-count { font-size: 0.85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 
 .feedback {
@@ -834,6 +862,7 @@ pre.pro-line { margin: 0.5rem 0 0; white-space: pre; }
   .topbar nav { margin-left: 0; width: 100%; }
   .section[id] { scroll-margin-top: 7.5rem; } /* the top bar wraps to two rows here */
   .editor-head span { display: none; } /* keyboard shortcuts: not useful on touch screens, and they crowd the bar */
+  .editor-actions .btn { min-height: 44px; } /* comfortable touch targets for Run, Submit, Copy context, Clear */
 }
 
 @media (prefers-reduced-motion: reduce) {

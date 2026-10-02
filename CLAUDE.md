@@ -273,6 +273,38 @@ split, for example) overrides the defaults here.
 10. **Finish.** Make a separate commit per tournament, push to main, and wait for CI to pass. Then give the user a
     list of the new problems with each one's title, par, and tags, and flag anything you weren't sure about.
 
+## Copy context
+
+The problem views (tournament holes and range problems) have a **Copy context** button in the editor's action row,
+with the shortcut Alt/Option+Shift+C. It copies a Markdown summary for asking someone (usually Claude) for help.
+Cmd/Ctrl+Shift+C isn't used because browsers reserve it for the developer tools' element inspector.
+
+- **The framing line** at the top, and the size limits (3 sample rows per table, 15 result rows, 40-character
+  cells), live in **`js/data/context-config.js`**. Edit them there.
+- **What's copied**, in order: framing, where I am, the problem, Background (holes only: lesson and yardage note),
+  schema (only the tables the reference query or my code mention, with 3 sample rows), my current code, my last
+  run (status, the exact error or feedback shown, columns, row count, first 15 rows), my progress, and the reference
+  solution, only if the learner ticks "Include pro solution". That toggle only appears once the solution is
+  unlocked (hole: solved; range: solved or 3 misses).
+- **Never** copy the expected output, and never copy the solution without the toggle. `tests/context.test.mjs`
+  checks this.
+- The pages build a ProblemContext from existing state (editor text, `lastRun` set by Run/Submit, the progress
+  store) and never re-run the query. The shape is documented at the top of `js/context/index.js`. Clipboard
+  handling (API → textarea + `execCommand` → manual-copy dialog) is in `js/ui/copy-context.js`.
+
+### Adding a context builder for a new problem type
+
+1. Create `js/context/<engine>.js` exporting `build<Engine>Context(ctx)`. Assemble it from the shared sections in
+   `js/context/sections.js` (`framingSection`, `locationSection`, `problemSection`, `backgroundSection`,
+   `codeSection(ctx, lang)`, `lastRunSection(ctx, renderResult)`, `progressSection`, `solutionSection(ctx, lang)`,
+   `joinSections`). Add the engine-specific parts yourself, for example DataFrame heads instead of SQL tables, and a
+   `renderResult` that shows that engine's result (`markdownTable` and `fence` are in `js/context/text.js`).
+2. Register it in `CONTEXT_BUILDERS` in `js/context/index.js` under the engine name used by `TOURNAMENTS[].engine`.
+   Until you do, that engine falls back to `buildFallbackContext` (title, task, code, feedback).
+3. Have the page pass what the builder needs in `ctx.data` (for SQL: `{ SQL, seed, referenceSql }`), and set
+   `lastRun.result` to whatever that engine's run produces.
+4. Add cases to `tests/context.test.mjs`, including "no solution unless passed in".
+
 ## Deployment
 
 `.github/workflows/pages.yml` runs on every push to `main` (tests only on pull requests). It runs `npm test`, copies

@@ -5,6 +5,7 @@ import { compareResults } from '../lib/compare.js';
 import { $, esc, BRAND_SVG, crumbs, scoreMark } from '../ui/dom.js';
 import { createSqlEditor, highlightSql } from '../ui/sql-editor.js';
 import { MOD, editorCardHTML, resultsHTML, yardageBookHTML, showFeedback, execute } from '../ui/workspace.js';
+import { mountCopyContext } from '../ui/copy-context.js';
 
 $('#brand').insertAdjacentHTML('afterbegin', BRAND_SVG);
 
@@ -50,6 +51,8 @@ async function start() {
 
   let index = indexFromUrl();
   let editor = null; // the CodeMirror instance for the current hole
+  let lastRun = null; // the last Run/Submit on this hole (for "Copy context"); reset when the hole changes
+  let copyControls = null;
 
   // ---------- Rendering ----------
 
@@ -119,7 +122,29 @@ async function start() {
 
     // Lesson examples are read-only: highlight them on paper so they never look like the editor.
     app.querySelectorAll('.lesson pre').forEach((pre) => highlightSql(pre, pre.textContent, 'paper'));
+    lastRun = null;
     mountEditor(hole, rec.code ?? '');
+    copyControls = mountCopyContext({
+      solutionUnlocked: () => progress.getHole(t.id, hole.id).solved, // the pro's line shows once holed
+      getContext: ({ includeSolution }) => {
+        const r = progress.getHole(t.id, hole.id);
+        const hints = r.hintUsed ? 1 : 0;
+        return {
+          engine: t.engine,
+          location: { kind: 'hole', tournament: t.title, hole: index + 1, holes: t.holes.length },
+          title: hole.title,
+          par: hole.par,
+          tags: [],
+          task: hole.task,
+          background: { lesson: hole.lesson, note: hole.yardage },
+          code: editor.getValue(),
+          lastRun,
+          progress: { attempts: r.strokes - hints, strokes: r.strokes, par: hole.par, hintsUsed: hints, solved: r.solved },
+          solution: includeSolution ? hole.solution : null,
+          data: { SQL, seed: t.seed, referenceSql: hole.solution },
+        };
+      },
+    });
     renderHint(hole);
     renderStrokeCount(hole);
     if (rec.solved) showSolved(hole, rec, false);
@@ -141,6 +166,7 @@ async function start() {
       box.innerHTML = '<button class="btn btn-small" id="hint-btn" type="button">🧢 Ask your caddie (+1 stroke)</button>';
       $('#hint-btn').addEventListener('click', () => {
         progress.useHint(t.id, hole.id);
+        copyControls?.refresh();
         renderHint(hole);
         renderStrokeCount(hole);
       });
@@ -173,7 +199,8 @@ async function start() {
   // ---------- Actions ----------
 
   function run() {
-    const { error } = execute(SQL, t.seed, editor.getValue());
+    const { result, error } = execute(SQL, t.seed, editor.getValue());
+    lastRun = error ? { kind: 'error', message: error, result: null } : { kind: 'practice', message: '', result };
     if (error) showFeedback('error', 'Shanked it. SQL error', `<p><code>${esc(error)}</code></p>`);
     else showFeedback('info', 'Practice swing', '<p>That one didn\'t count. Submit when you\'re ready to take the shot.</p>');
   }
@@ -192,6 +219,8 @@ async function start() {
 
     if (verdict.ok) {
       showSolved(hole, rec, !wasSolved);
+      lastRun = { kind: 'correct', message: $('#feedback .feedback strong').textContent, result };
+      copyControls.refresh();
       if (!wasSolved) {
         // Refresh the sidebar marks without losing the editor.
         $('.hole-list').outerHTML = renderHoleList();
@@ -200,6 +229,9 @@ async function start() {
     } else {
       const lead = wasSolved ? 'Not quite. (This hole is already holed, so no stroke was added.)' : `Stroke ${rec.strokes}: not in the hole yet.`;
       showFeedback(error ? 'error' : 'miss', lead, `<p>${esc(verdict.message)}</p>`);
+      lastRun = error
+        ? { kind: 'error', message: error, result: null }
+        : { kind: 'wrong', message: `${lead} ${verdict.message}`, result };
     }
   }
 

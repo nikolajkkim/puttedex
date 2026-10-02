@@ -63,3 +63,30 @@ export function describeSchema(SQL, seed) {
     db.close();
   }
 }
+
+/**
+ * CREATE TABLE statement, row count, and the first `sampleRows` rows of each table in `names` (null = every table),
+ * in schema order. Used by "Copy context".
+ */
+export function tableSnapshots(SQL, seed, names = null, sampleRows = 3) {
+  const db = new SQL.Database();
+  try {
+    db.run(seed);
+    const [res] = db.exec("SELECT name, sql FROM sqlite_master WHERE type = 'table' ORDER BY rowid");
+    if (!res) return [];
+    return res.values
+      .filter(([name]) => !names || names.includes(name))
+      .map(([name, createSql]) => {
+        const quoted = JSON.stringify(name);
+        const [[rowCount]] = db.exec(`SELECT COUNT(*) FROM ${quoted}`)[0].values;
+        const stmt = db.prepare(`SELECT * FROM ${quoted} LIMIT ${Math.max(0, Math.floor(sampleRows))}`);
+        const columns = stmt.getColumnNames();
+        const rows = [];
+        while (stmt.step()) rows.push(stmt.get());
+        stmt.free();
+        return { name, createSql: `${createSql.trim()};`, rowCount, sample: { columns, rows } };
+      });
+  } finally {
+    db.close();
+  }
+}
