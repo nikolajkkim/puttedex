@@ -55,12 +55,16 @@ export const TOURNAMENTS = [
     id: 'sql-windows',
     title: 'Window Functions',
     event: 'The Leaderboard Invitational',
-    blurb: 'RANK, ROW_NUMBER, running totals, and LAG/LEAD. Leaderboards done properly.',
-    description: 'Window functions show up in almost every intermediate SQL interview: top-N per group, '
-      + 'running totals, period-over-period change, and deduplication with ROW_NUMBER.',
-    skills: ['RANK', 'ROW_NUMBER', 'LAG/LEAD', 'Running totals'],
+    blurb: 'ROW_NUMBER, RANK, running totals, LAG/LEAD, and top-N per group. Leaderboards done properly.',
+    description: 'Window functions show up in almost every intermediate SQL interview. You\'ll number and rank '
+      + 'rounds (and learn exactly how RANK and DENSE_RANK treat ties), compare each row with its group\'s average '
+      + 'and total, build running totals and moving averages, and look backwards and forwards with LAG and LEAD. '
+      + 'The back nine is interview territory: top N per group, deduplication, quartiles, the frame gotcha behind '
+      + 'LAST_VALUE, streaks, and month-over-month rank changes.',
+    skills: ['ROW_NUMBER', 'RANK/DENSE_RANK', 'PARTITION BY', 'Running totals', 'LAG/LEAD', 'NTILE'],
     engine: 'sql',
     dataset: 'clubhouse',
+    prerequisite: 'sql-joins',
     holeSet: null,
   },
   {
