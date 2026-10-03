@@ -110,7 +110,7 @@ course map) goes to `tournament.html?t=<id>#holes`, and v1's `course.html?hole=<
 ## The clubhouse dataset
 
 `js/data/datasets/clubhouse.js` is the SQLite database every SQL tournament queries: `players` (16), `courses` (8),
-and `rounds` (54, March–August 2026). It includes deliberate edge cases that holes depend on:
+and `rounds` (90, March–August 2026; 5–10 per player, usually across several months and courses). It includes deliberate edge cases that holes depend on:
 
 - Players 13–16 have **no rounds** (anti-joins, `LEFT JOIN` counts, `COALESCE`).
 - `players.home_course_id` is nullable (3 players have no home club), and most home courses are shared by 2–3 players
@@ -118,6 +118,11 @@ and `rounds` (54, March–August 2026). It includes deliberate edge cases that h
 - Course 7 (Desert Mirage) has no rounds and is nobody's home course. Course 8 (Coral Bay) has rounds but is nobody's
   home course.
 - `players.handicap` is NULL for 3 players.
+- Weather: Cypress Point and Sakura Hills never had wind or rain, and Coral Bay never had rain. Coral Bay is played
+  only by professionals.
+- Window-function cases (Tournament 3): tied scores at the same course (RANK vs DENSE_RANK differ at Old Links and
+  Sakura Hills), and Liam Chipman has the unique longest run of consecutive improving rounds (87, 84, 83, 82, 80).
+- sql.js ships SQLite 3.49.1, which supports every window function and frame clause the holes use.
 
 Any change to the data changes expected answers, and can make a hole's `mistakes` stop failing or its task wording
 inaccurate (for example "every player" when some players have no rounds). After editing it, run `npm test` and

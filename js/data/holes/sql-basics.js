@@ -131,21 +131,21 @@ LIMIT 3;</pre>
       <p>In golf, <strong>lower is better</strong>, so the leaderboard sorts scores ascending.</p>`,
     interview: `"Top N" questions are everywhere. Always ask how ties should be handled. Without a tiebreaker, the order of tied rows isn't guaranteed.`,
     yardage: `<code>rounds.score</code>: lower is better. <code>round_id</code> is unique, so it's a safe tiebreaker.`,
-    task: `Build a leaderboard of the <strong>5 best (lowest) rounds</strong>. Return <code>round_id</code> and
+    task: `Build a leaderboard of the <strong>8 best (lowest) rounds</strong>. Return <code>round_id</code> and
       <code>score</code>, in that order. Sort by <code>score</code> ascending and break ties by <code>round_id</code> ascending.`,
     solution: `SELECT round_id, score
 FROM rounds
 ORDER BY score ASC, round_id ASC
-LIMIT 5;`,
-    hint: 'Use <code>ORDER BY score, round_id</code> and then <code>LIMIT 5</code>. <code>LIMIT</code> always comes last.',
+LIMIT 8;`,
+    hint: 'Use <code>ORDER BY score, round_id</code> and then <code>LIMIT 8</code>. <code>LIMIT</code> always comes last.',
     alternatives: [
-      'SELECT round_id, score FROM rounds ORDER BY score, round_id LIMIT 5;',
+      'SELECT round_id, score FROM rounds ORDER BY score, round_id LIMIT 8;',
     ],
     mistakes: [
-      'SELECT round_id, score FROM rounds ORDER BY score DESC LIMIT 5;',
+      'SELECT round_id, score FROM rounds ORDER BY score DESC LIMIT 8;',
       'SELECT round_id, score FROM rounds ORDER BY score, round_id LIMIT 6;',
-      'SELECT round_id, score FROM rounds ORDER BY score DESC, round_id DESC LIMIT 5;',
-      'SELECT round_id, score FROM rounds ORDER BY score, round_id DESC LIMIT 5;',
+      'SELECT round_id, score FROM rounds ORDER BY score DESC, round_id DESC LIMIT 8;',
+      'SELECT round_id, score FROM rounds ORDER BY score, round_id DESC LIMIT 8;',
     ],
   },
   {
@@ -245,7 +245,7 @@ GROUP BY course_id;</pre>
 HAVING COUNT(*) &gt;= 10;</pre>`,
     interview: `"What's the difference between WHERE and HAVING?" is asked constantly. <code>WHERE</code> filters rows before grouping. <code>HAVING</code> filters groups after it.`,
     yardage: `<code>rounds.player_id</code> says whose round it is.`,
-    task: `For each player who has played <strong>at least 5 rounds</strong>, return three columns in this order:
+    task: `For each player who has played <strong>at least 8 rounds</strong>, return three columns in this order:
       their <code>player_id</code>, their number of rounds, and their average score <strong>rounded to 1 decimal</strong>.`,
     solution: `SELECT
   player_id,
@@ -253,15 +253,15 @@ HAVING COUNT(*) &gt;= 10;</pre>`,
   ROUND(AVG(score), 1) AS avg_score
 FROM rounds
 GROUP BY player_id
-HAVING COUNT(*) >= 5;`,
-    hint: '<code>GROUP BY player_id</code>, then <code>HAVING COUNT(*) &gt;= 5</code>. The count and average go in the SELECT list.',
+HAVING COUNT(*) >= 8;`,
+    hint: '<code>GROUP BY player_id</code>, then <code>HAVING COUNT(*) &gt;= 8</code>. The count and average go in the SELECT list.',
     alternatives: [
-      'SELECT player_id, COUNT(*) AS n, ROUND(AVG(score), 1) FROM rounds GROUP BY player_id HAVING n >= 5 ORDER BY player_id DESC;',
+      'SELECT player_id, COUNT(*) AS n, ROUND(AVG(score), 1) FROM rounds GROUP BY player_id HAVING n >= 8 ORDER BY player_id DESC;',
     ],
     mistakes: [
-      'SELECT player_id, COUNT(*), ROUND(AVG(score), 1) FROM rounds GROUP BY player_id HAVING COUNT(*) > 5;',
+      'SELECT player_id, COUNT(*), ROUND(AVG(score), 1) FROM rounds GROUP BY player_id HAVING COUNT(*) > 8;',
       'SELECT player_id, COUNT(*), ROUND(AVG(score), 1) FROM rounds GROUP BY player_id;',
-      'SELECT player_id, COUNT(*), ROUND(AVG(score), 1) FROM rounds WHERE COUNT(*) >= 5 GROUP BY player_id;',
+      'SELECT player_id, COUNT(*), ROUND(AVG(score), 1) FROM rounds WHERE COUNT(*) >= 8 GROUP BY player_id;',
     ],
   },
   {
@@ -445,7 +445,7 @@ GROUP BY course_id;</pre>
       and is wrong. Before you count, ask yourself: rows, or distinct things?`,
     yardage: `<code>rounds.course_id</code> repeats whenever a player returns to a course. Names are in
       <code>players</code>.`,
-    task: `Which players are true course collectors? Find the players who have played <strong>at least 4 different
+    task: `Which players are true course collectors? Find the players who have played <strong>at least 5 different
       courses</strong>. Return three columns in this order: <code>name</code>, the number of different courses they've
       played, and their total number of rounds.`,
     solution: `SELECT
@@ -455,18 +455,18 @@ GROUP BY course_id;</pre>
 FROM players AS p
 JOIN rounds AS r ON r.player_id = p.player_id
 GROUP BY p.player_id, p.name
-HAVING COUNT(DISTINCT r.course_id) >= 4;`,
+HAVING COUNT(DISTINCT r.course_id) >= 5;`,
     hint: 'After joining and grouping by player, use <code>COUNT(DISTINCT r.course_id)</code> in the SELECT list '
-      + 'and again in <code>HAVING … &gt;= 4</code>.',
+      + 'and again in <code>HAVING … &gt;= 5</code>.',
     alternatives: [
       `SELECT p.name, COUNT(DISTINCT r.course_id) AS courses, COUNT(r.round_id) FROM rounds r
-         JOIN players p ON p.player_id = r.player_id GROUP BY p.name HAVING courses > 3;`,
+         JOIN players p ON p.player_id = r.player_id GROUP BY p.name HAVING courses > 4;`,
     ],
     mistakes: [
       `SELECT p.name, COUNT(r.course_id), COUNT(*) FROM players p JOIN rounds r ON r.player_id = p.player_id
-         GROUP BY p.name HAVING COUNT(r.course_id) >= 4;`,
+         GROUP BY p.name HAVING COUNT(r.course_id) >= 5;`,
       `SELECT p.name, COUNT(DISTINCT r.course_id), COUNT(*) FROM players p JOIN rounds r ON r.player_id = p.player_id
-         GROUP BY p.name HAVING COUNT(*) >= 4;`,
+         GROUP BY p.name HAVING COUNT(*) >= 5;`,
     ],
   },
   {
@@ -635,7 +635,7 @@ GROUP BY p.player_id, p.name;`,
       problem down as much as the final query. Say how you're handling ties, too.`,
     yardage: `One round's strokes over par is <code>r.score - c.par</code>. Par is in <code>courses</code>, names are in
       <code>players</code>, and <code>rounds</code> connects them.`,
-    task: `Crown the player of the year. For every player with <strong>at least 4 rounds</strong>, return four columns in
+    task: `Crown the player of the year. For every player with <strong>at least 7 rounds</strong>, return four columns in
       this order: <code>name</code>, their number of rounds, their average strokes over par (<code>score - par</code>)
       <strong>rounded to 1 decimal</strong>, and their best single round relative to par (the lowest
       <code>score - par</code>). Sort by the rounded average, <strong>best (lowest) first</strong>, then by name A→Z.`,
@@ -648,15 +648,15 @@ FROM rounds AS r
 JOIN players AS p ON p.player_id = r.player_id
 JOIN courses AS c ON c.course_id = r.course_id
 GROUP BY p.player_id, p.name
-HAVING COUNT(*) >= 4
+HAVING COUNT(*) >= 7
 ORDER BY avg_over_par ASC, p.name ASC;`,
     hint: 'Join <code>rounds</code> to <code>players</code> and <code>courses</code>. <code>GROUP BY</code> the player with '
-      + '<code>HAVING COUNT(*) &gt;= 4</code>, select <code>ROUND(AVG(r.score - c.par), 1)</code> and '
+      + '<code>HAVING COUNT(*) &gt;= 7</code>, select <code>ROUND(AVG(r.score - c.par), 1)</code> and '
       + '<code>MIN(r.score - c.par)</code>, then <code>ORDER BY</code> the average, then name.',
     alternatives: [
       `SELECT p.name, COUNT(r.round_id), ROUND(AVG(r.score - c.par), 1), MIN(r.score - c.par)
        FROM players p JOIN rounds r USING (player_id) JOIN courses c USING (course_id)
-       GROUP BY p.name HAVING COUNT(*) > 3 ORDER BY 3, 1;`,
+       GROUP BY p.name HAVING COUNT(*) > 6 ORDER BY 3, 1;`,
     ],
     mistakes: [
       `SELECT p.name, COUNT(*), ROUND(AVG(r.score - c.par), 1) AS a, MIN(r.score - c.par)
@@ -664,13 +664,13 @@ ORDER BY avg_over_par ASC, p.name ASC;`,
        GROUP BY p.name ORDER BY a, p.name;`,
       `SELECT p.name, COUNT(*), ROUND(AVG(r.score - c.par), 1) AS a, MIN(r.score - c.par)
        FROM rounds r JOIN players p ON p.player_id = r.player_id JOIN courses c ON c.course_id = r.course_id
-       GROUP BY p.name HAVING COUNT(*) >= 4 ORDER BY a DESC, p.name;`,
+       GROUP BY p.name HAVING COUNT(*) >= 7 ORDER BY a DESC, p.name;`,
       `SELECT p.name, COUNT(*), ROUND(AVG(r.score - c.par), 1) AS a, MAX(r.score - c.par)
        FROM rounds r JOIN players p ON p.player_id = r.player_id JOIN courses c ON c.course_id = r.course_id
-       GROUP BY p.name HAVING COUNT(*) >= 4 ORDER BY a, p.name;`,
+       GROUP BY p.name HAVING COUNT(*) >= 7 ORDER BY a, p.name;`,
       `SELECT p.name, COUNT(*), ROUND(AVG(r.score), 1) AS a, MIN(r.score - c.par)
        FROM rounds r JOIN players p ON p.player_id = r.player_id JOIN courses c ON c.course_id = r.course_id
-       GROUP BY p.name HAVING COUNT(*) >= 4 ORDER BY a, p.name;`,
+       GROUP BY p.name HAVING COUNT(*) >= 7 ORDER BY a, p.name;`,
     ],
   },
 ];

@@ -103,7 +103,7 @@ test('wrong answer with a long, wide result: feedback, all columns, 15 of N rows
   result.rows[0][1] = 'A very long value that goes on and on for well over forty characters';
   const md = buildContext(rangeCtx(p, { code, lastRun: { kind: 'wrong', message: 'Stroke 1: not in the hole yet. Expected 4 columns, but got 18.', result } }));
   assert.match(md, /\*\*Status:\*\* Submitted: not correct yet\n\nFeedback I was shown: Stroke 1: not in the hole yet\. Expected 4 columns, but got 18\./);
-  assert.match(md, /Rows: 54 \(showing 15 of 54 rows\)/);
+  assert.match(md, new RegExp(`Rows: ${result.rows.length} \\(showing 15 of ${result.rows.length} rows\\)`));
   const table = md.slice(md.indexOf('## My last run')).split('\n').filter((l) => l.startsWith('|'));
   assert.equal(table.length, 2 + CONTEXT_LIMITS.resultRows);
   assert.equal(table[0].split(' | ').length, 18, 'every column kept');

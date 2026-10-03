@@ -107,22 +107,22 @@ FROM rounds;`,
     difficulty: 'medium',
     tags: ['JOIN', 'GROUP BY', 'HAVING', 'ORDER BY'],
     orderMatters: true,
-    task: `Which courses have hosted <strong>at least 8 rounds</strong>? Return the course <code>name</code> and its
+    task: `Which courses have hosted <strong>at least 14 rounds</strong>? Return the course <code>name</code> and its
       number of rounds, in that order. Sort by number of rounds, most first, then by name A→Z.`,
     solution: `SELECT c.name, COUNT(*) AS rounds_played
 FROM rounds AS r
 JOIN courses AS c ON c.course_id = r.course_id
 GROUP BY c.course_id, c.name
-HAVING COUNT(*) >= 8
+HAVING COUNT(*) >= 14
 ORDER BY rounds_played DESC, c.name ASC;`,
-    hint: 'Join, <code>GROUP BY</code> the course, keep groups with <code>HAVING COUNT(*) &gt;= 8</code>, then sort by the count and name.',
+    hint: 'Join, <code>GROUP BY</code> the course, keep groups with <code>HAVING COUNT(*) &gt;= 14</code>, then sort by the count and name.',
     alternatives: [
-      'SELECT c.name, COUNT(r.round_id) AS n FROM courses c JOIN rounds r USING (course_id) GROUP BY c.name HAVING n > 7 ORDER BY n DESC, 1;',
+      'SELECT c.name, COUNT(r.round_id) AS n FROM courses c JOIN rounds r USING (course_id) GROUP BY c.name HAVING n > 13 ORDER BY n DESC, 1;',
     ],
     mistakes: [
-      'SELECT c.name, COUNT(*) AS n FROM rounds r JOIN courses c ON c.course_id = r.course_id GROUP BY c.name HAVING COUNT(*) > 8 ORDER BY n DESC, c.name;',
-      'SELECT c.name, COUNT(*) AS n FROM rounds r JOIN courses c ON c.course_id = r.course_id GROUP BY c.name HAVING COUNT(*) >= 8 ORDER BY n DESC, c.name DESC;',
-      'SELECT c.name, COUNT(DISTINCT r.player_id) AS n FROM rounds r JOIN courses c ON c.course_id = r.course_id GROUP BY c.name HAVING n >= 8 ORDER BY n DESC, c.name;',
+      'SELECT c.name, COUNT(*) AS n FROM rounds r JOIN courses c ON c.course_id = r.course_id GROUP BY c.name HAVING COUNT(*) > 14 ORDER BY n DESC, c.name;',
+      'SELECT c.name, COUNT(*) AS n FROM rounds r JOIN courses c ON c.course_id = r.course_id GROUP BY c.name HAVING COUNT(*) >= 14 ORDER BY n DESC, c.name DESC;',
+      'SELECT c.name, COUNT(DISTINCT r.player_id) AS n FROM rounds r JOIN courses c ON c.course_id = r.course_id GROUP BY c.name HAVING n >= 14 ORDER BY n DESC, c.name;',
     ],
   },
   {
@@ -215,7 +215,7 @@ ORDER BY avg_score ASC, p.name ASC;`,
     difficulty: 'medium',
     tags: ['Aggregates', 'JOIN', 'GROUP BY', 'HAVING'],
     orderMatters: true,
-    task: `Who's the most consistent? For every player with <strong>at least 4 rounds</strong>, return three columns in
+    task: `Who's the most consistent? For every player with <strong>at least 7 rounds</strong>, return three columns in
       this order: <code>name</code>, their score <strong>spread</strong> (worst score minus best score), and their average
       putts <strong>rounded to 1 decimal</strong>. Sort by spread, smallest first, then by name.`,
     solution: `SELECT
@@ -225,20 +225,20 @@ ORDER BY avg_score ASC, p.name ASC;`,
 FROM rounds AS r
 JOIN players AS p ON p.player_id = r.player_id
 GROUP BY p.player_id, p.name
-HAVING COUNT(*) >= 4
+HAVING COUNT(*) >= 7
 ORDER BY spread ASC, p.name ASC;`,
-    hint: 'The spread is <code>MAX(r.score) - MIN(r.score)</code>. Group by player, keep <code>HAVING COUNT(*) &gt;= 4</code>, and sort by the spread.',
+    hint: 'The spread is <code>MAX(r.score) - MIN(r.score)</code>. Group by player, keep <code>HAVING COUNT(*) &gt;= 7</code>, and sort by the spread.',
     alternatives: [
       `SELECT p.name, MAX(score) - MIN(score) AS s, ROUND(SUM(putts) * 1.0 / COUNT(*), 1)
-       FROM players p JOIN rounds r USING (player_id) GROUP BY p.name HAVING COUNT(*) > 3 ORDER BY s, p.name;`,
+       FROM players p JOIN rounds r USING (player_id) GROUP BY p.name HAVING COUNT(*) > 6 ORDER BY s, p.name;`,
     ],
     mistakes: [
       `SELECT p.name, MIN(r.score) - MAX(r.score) AS s, ROUND(AVG(r.putts), 1) FROM rounds r JOIN players p ON p.player_id = r.player_id
-       GROUP BY p.name HAVING COUNT(*) >= 4 ORDER BY s, p.name;`,
+       GROUP BY p.name HAVING COUNT(*) >= 7 ORDER BY s, p.name;`,
       `SELECT p.name, MAX(r.score) - MIN(r.score) AS s, ROUND(AVG(r.putts), 1) FROM rounds r JOIN players p ON p.player_id = r.player_id
-       GROUP BY p.name HAVING COUNT(*) >= 4 ORDER BY s, p.name DESC;`,
+       GROUP BY p.name HAVING COUNT(*) >= 7 ORDER BY s, p.name DESC;`,
       `SELECT p.name, MAX(r.score) - MIN(r.score) AS s, ROUND(AVG(r.putts), 1) FROM rounds r JOIN players p ON p.player_id = r.player_id
-       GROUP BY p.name HAVING COUNT(*) > 4 ORDER BY s, p.name;`,
+       GROUP BY p.name HAVING COUNT(*) > 7 ORDER BY s, p.name;`,
     ],
   },
   {
@@ -640,7 +640,7 @@ ORDER BY avg_over_par ASC;`,
     difficulty: 'hard',
     tags: ['COUNT DISTINCT', 'JOIN', 'GROUP BY', 'HAVING', 'LIMIT'],
     task: `The club can fund coaching clinics in three countries. Group rounds by the <strong>player's</strong>
-      country, and only consider countries with <strong>at least 5 rounds</strong> (a fair sample). Find the
+      country, and only consider countries with <strong>at least 7 rounds</strong> (a fair sample). Find the
       <strong>3 countries with the highest</strong> average strokes over par (<code>score - par</code>). Return four
       columns in this order: <code>country</code>, the number of <strong>different</strong> players, the number of
       rounds, and the average strokes over par <strong>rounded to 1 decimal</strong>. The three rows can be in any
@@ -654,15 +654,15 @@ FROM rounds AS r
 JOIN players AS p ON p.player_id = r.player_id
 JOIN courses AS c ON c.course_id = r.course_id
 GROUP BY p.country
-HAVING COUNT(*) >= 5
+HAVING COUNT(*) >= 7
 ORDER BY AVG(r.score - c.par) DESC
 LIMIT 3;`,
-    hint: 'Join all three tables and <code>GROUP BY p.country</code>. Keep <code>HAVING COUNT(*) &gt;= 5</code> <em>before</em> '
+    hint: 'Join all three tables and <code>GROUP BY p.country</code>. Keep <code>HAVING COUNT(*) &gt;= 7</code> <em>before</em> '
       + 'picking the top 3 with <code>ORDER BY … DESC LIMIT 3</code>, and count players with <code>COUNT(DISTINCT p.player_id)</code>.',
     alternatives: [
       `SELECT p.country, COUNT(DISTINCT r.player_id), COUNT(r.round_id), ROUND(AVG(r.score - c.par), 1) AS a
        FROM players p JOIN rounds r USING (player_id) JOIN courses c USING (course_id)
-       GROUP BY p.country HAVING COUNT(*) > 4 ORDER BY AVG(r.score) - AVG(c.par) DESC LIMIT 3;`,
+       GROUP BY p.country HAVING COUNT(*) > 6 ORDER BY AVG(r.score) - AVG(c.par) DESC LIMIT 3;`,
     ],
     mistakes: [
       // No minimum sample: countries with 2-3 rounds take over the top of the list.
@@ -671,13 +671,13 @@ LIMIT 3;`,
        GROUP BY p.country ORDER BY a DESC LIMIT 3;`,
       `SELECT p.country, COUNT(p.player_id), COUNT(*), ROUND(AVG(r.score - c.par), 1) AS a FROM rounds r
        JOIN players p ON p.player_id = r.player_id JOIN courses c ON c.course_id = r.course_id
-       GROUP BY p.country HAVING COUNT(*) >= 5 ORDER BY a DESC LIMIT 3;`,
+       GROUP BY p.country HAVING COUNT(*) >= 7 ORDER BY a DESC LIMIT 3;`,
       `SELECT p.country, COUNT(DISTINCT p.player_id), COUNT(*), ROUND(AVG(r.score - c.par), 1) AS a FROM rounds r
        JOIN players p ON p.player_id = r.player_id JOIN courses c ON c.course_id = r.course_id
-       GROUP BY p.country HAVING COUNT(*) >= 5 ORDER BY a LIMIT 3;`,
+       GROUP BY p.country HAVING COUNT(*) >= 7 ORDER BY a LIMIT 3;`,
       `SELECT c.country, COUNT(DISTINCT p.player_id), COUNT(*), ROUND(AVG(r.score - c.par), 1) AS a FROM rounds r
        JOIN players p ON p.player_id = r.player_id JOIN courses c ON c.course_id = r.course_id
-       GROUP BY c.country HAVING COUNT(*) >= 5 ORDER BY a DESC LIMIT 3;`,
+       GROUP BY c.country HAVING COUNT(*) >= 7 ORDER BY a DESC LIMIT 3;`,
     ],
   },
   {
