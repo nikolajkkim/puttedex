@@ -9,6 +9,15 @@ const WINDOW_FN = /\bOVER\s*\(|\b(ROW_NUMBER|RANK|DENSE_RANK|PERCENT_RANK|NTILE|
 const JOINS_INDEX = TOURNAMENTS.findIndex((t) => t.id === 'sql-joins'); // LEFT JOIN is taught from here on
 const WINDOWS_INDEX = TOURNAMENTS.findIndex((t) => t.id === 'sql-windows'); // window functions are taught here
 
+// Blank out the inside of OVER (...) so its PARTITION BY / ORDER BY don't count as clauses. Keeps line breaks.
+const maskWindows = (sql) => sql.replace(/\bOVER\s*\(([^()]*)\)/gi, (m) => m.replace(/[^\n]/g, ' '));
+const partitionCount = (sql) => (sql.match(/\bPARTITION\s+BY\b/gi) ?? []).length;
+
+// The same data, but each table is a view that reads its rows in reverse storage order.
+const reversedSeed = (seed) => seed + [...seed.matchAll(/CREATE TABLE (\w+)/g)].map(([, t]) => `
+ALTER TABLE ${t} RENAME TO ${t}__stored;
+CREATE VIEW ${t} AS SELECT * FROM ${t}__stored ORDER BY rowid DESC;`).join('');
+
 const joinKinds = (sql) => {
   const joins = [...sql.matchAll(/\b((?:LEFT|RIGHT|INNER|CROSS)\s+)?(?:OUTER\s+)?JOIN\b/gi)];
   return { total: joins.length, outer: joins.filter((m) => /LEFT|RIGHT/i.test(m[1] ?? '')).length };
@@ -46,7 +55,7 @@ export function checkGradedSql(assert, SQL, seed, item, { tournamentId, html = '
   for (const line of [item.solution, ...examples].flatMap((s) => s.split('\n'))) {
     assert.ok(line.length <= 80, `line is ${line.length} characters (max 80); wrap it: ${line}`);
   }
-  for (const line of item.solution.split('\n')) {
+  for (const line of maskWindows(item.solution).split('\n')) {
     for (const m of line.trim().matchAll(CLAUSE)) {
       assert.equal(m.index, 0, `clause "${m[0]}" should start its own line in: ${line}`);
     }
@@ -60,6 +69,13 @@ export function checkGradedSql(assert, SQL, seed, item, { tournamentId, html = '
 
   assert.ok(grade(item.solution).ok, 'solution passes');
   assert.equal(grade('').ok, false, 'a blank editor does not pass');
+  if (tournamentIndex >= WINDOWS_INDEX) {
+    // The expected result must not depend on the order SQLite happens to read tied rows in: rerun the solution on
+    // the same data with every table read back to front, and require the same answer.
+    const reversed = compareResults(runQuery(SQL, reversedSeed(seed), item.solution), expected,
+      { orderMatters: item.orderMatters });
+    assert.ok(reversed.ok, `solution is deterministic (break ties in the task): ${reversed.message}`);
+  }
   assert.ok(item.alternatives?.length > 0, 'declares at least one alternative correct answer');
   for (const other of item.alternatives) {
     const verdict = grade(other);
@@ -80,6 +96,11 @@ export function checkGradedSql(assert, SQL, seed, item, { tournamentId, html = '
     const { outer } = joinKinds(item.solution);
     assert.ok(item.mistakes.some((m) => joinKinds(m).total > 0 && joinKinds(m).outer !== outer),
       'join item: declares a mistake that uses the other join type (LEFT vs INNER)');
+  }
+  // Forgetting PARTITION BY is the classic window bug, so every partitioned solution proves the checker catches it.
+  if (tournamentIndex >= WINDOWS_INDEX && partitionCount(item.solution) > 0) {
+    assert.ok(item.mistakes.some((m) => WINDOW_FN.test(m) && partitionCount(m) < partitionCount(item.solution)),
+      'PARTITION BY item: declares a mistake that drops a PARTITION BY');
   }
   return expected;
 }

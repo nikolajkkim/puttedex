@@ -65,7 +65,7 @@ export const TOURNAMENTS = [
     engine: 'sql',
     dataset: 'clubhouse',
     prerequisite: 'sql-joins',
-    holeSet: null,
+    holeSet: 'sql-windows',
   },
   {
     id: 'python-fundamentals',

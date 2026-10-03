@@ -44,8 +44,8 @@ In the repo settings, set **Pages → Source** to **GitHub Actions**.
 ## Tour schedule
 
 1. SQL Basics: all 18 holes open
-2. Joins & Subqueries
-3. Window Functions
+2. Joins & Subqueries: all 18 holes open
+3. Window Functions: all 18 holes open
 4. Python Fundamentals
 5. pandas Wrangling
 6. Probability & Statistics

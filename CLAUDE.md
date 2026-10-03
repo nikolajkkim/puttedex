@@ -176,7 +176,8 @@ closing interview-style holes are `hard` (both Par 2).
   anything the task leaves open must not change that result.
 - `solution` is shown to learners as "the pro's line": one clause per line (`SELECT`, `FROM`, `JOIN`, `WHERE`,
   `GROUP BY`, `HAVING`, `ORDER BY`, `LIMIT`), no surrounding whitespace. A clause keyword may only start a line, so
-  lay out subqueries and CTE bodies one clause per line too. Tests enforce this.
+  lay out subqueries and CTE bodies one clause per line too. The `PARTITION BY` / `ORDER BY` inside `OVER (...)` are
+  exempt; spread a long `OVER` over several lines instead. Tests enforce this.
 - No starter code: the editor always opens blank (tests reject a `starter` field).
 - `alternatives`: at least one differently written correct answer the checker must accept.
 - `mistakes`: at least one realistic wrong answer the checker must reject. If the dataset can't tell a mistake apart
@@ -185,6 +186,10 @@ closing interview-style holes are `hard` (both Par 2).
     graded);
   - from Joins & Subqueries on, when the solution joins tables, a mistake that uses the other join type (LEFT vs
     INNER).
+  - from Window Functions on, a mistake without the `PARTITION BY` whenever the solution partitions; and the solution
+    must give the same result when every table is read in reverse order. That fails when a `ROW_NUMBER`, `NTILE`, or
+    `LAG` ordering (or the final sort) has ties the task doesn't break, so add a tie-breaker to the task and the
+    solution.
 - Don't use features a later tournament teaches. Tests reject window functions (`OVER`, `ROW_NUMBER`, `RANK`, `LAG`,
   `LEAD`, …) in solutions and alternatives of tournaments scheduled before Window Functions.
 - SQL is SQLite's dialect (sql.js): no `FULL OUTER JOIN` or `PERCENTILE_CONT`. `RIGHT JOIN`, `IIF`, and `FILTER` work.
