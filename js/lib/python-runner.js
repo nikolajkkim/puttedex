@@ -6,6 +6,7 @@
 //   runner.onStatus((s) => …)      // { state: 'idle' | 'loading' | 'ready' | 'busy' | 'restarting' | 'failed', … }
 //   await runner.ready(['numpy'])  // load Pyodide plus extra packages (cached per worker)
 //   await runner.run(code, setup)  // → { stdout, stderr, truncated, value, error } or { timedOut: true }
+//   await runner.check(key, solution, code, checker)  // → check report or { timedOut: true }
 //   runner.restart()               // throw the interpreter away; the next request starts a fresh one
 //
 // A request that takes longer than PYTHON.timeoutMs kills the worker (the only way to stop a busy WebAssembly
@@ -27,6 +28,7 @@ export class PythonRunner {
     this.worker = null;
     this.booting = null; // promise for { version } of the current worker
     this.packages = new Set(); // loaded in the current worker
+    this.prepared = new Set(); // checker keys whose expected values the current worker holds
     this.pending = new Map();
     this.nextId = 1;
     this.listeners = new Set();
@@ -62,6 +64,7 @@ export class PythonRunner {
       this.pending.clear();
     });
     this.packages = new Set();
+    this.prepared = new Set();
     const started = performance.now();
     const restarting = this.loadedOnce;
     this.setStatus({ state: restarting ? 'restarting' : 'loading', firstLoad: !restarting });
@@ -145,5 +148,20 @@ export class PythonRunner {
   /** Run code (after `setup`) in a fresh namespace. */
   run(code, { setup = '', packages = [] } = {}) {
     return this.timed('run', { code, setup }, { packages });
+  }
+
+  /**
+   * Check code against a checker. The reference solution's results are computed once per worker (keyed by `key`)
+   * before the timed check, so only the learner's code counts toward the time limit.
+   */
+  check(key, solution, code, checker, { packages = [] } = {}) {
+    return this.timed('check', { key, code, checker }, {
+      packages,
+      before: async () => {
+        if (this.prepared.has(key)) return;
+        await this.send('prepare', { key, solution, checker });
+        this.prepared.add(key);
+      },
+    });
   }
 }

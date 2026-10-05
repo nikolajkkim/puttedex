@@ -5,12 +5,18 @@ import { $, esc } from '../dom.js';
 import { MOD } from '../workspace.js';
 import { highlightCode } from '../editor.js';
 import { getPythonRunner } from '../../lib/python-runner.js';
-import { renderRun, renderTimeout } from '../python-results.js';
+import { summarize } from '../../lib/python-engine.js';
+import { renderRun, renderCheck, renderTimeout, summaryLine, firstFailureText } from '../python-results.js';
 
 const FIRST_LOAD_NOTE = 'Loading Python for the first time on this page (about 13 MB, cached by your browser after this).';
 
 export function createWorkspace({ packages: tournamentPackages = [] } = {}) {
   const runner = getPythonRunner();
+  const keys = new Map(); // reference solution → key for the runner's cache of expected values
+  const keyFor = (item) => {
+    if (!keys.has(item.solution)) keys.set(item.solution, `item-${keys.size + 1}`);
+    return keys.get(item.solution);
+  };
   const packagesFor = (item) => [...new Set([...tournamentPackages, ...(item.packages ?? [])])];
   const firstVisible = (item) => item.checker.cases.find((c) => !c.hidden);
   const usesSetup = (item) => item.checker.type !== 'function';
@@ -127,8 +133,32 @@ export function createWorkspace({ packages: tournamentPackages = [] } = {}) {
       };
     },
 
-    async submit() {
-      return { graded: false, ok: false, error: null, message: 'Checking Python answers isn\'t available yet.', lastRun: null };
+    async submit(code, item) {
+      $('#results').innerHTML = '<p class="empty">Checking…</p>';
+      let report;
+      try {
+        report = await runner.check(keyFor(item), item.solution, code, item.checker, { packages: packagesFor(item) });
+      } catch (err) {
+        unavailable(err);
+        return { graded: false, ok: false, error: err.message, message: `Python isn't available: ${err.message}`, lastRun: null };
+      }
+      if (report.timedOut) {
+        $('#results').innerHTML = renderTimeout(report.seconds);
+        const message = `Your code ran too long (over ${report.seconds} seconds). Check for an infinite loop.`;
+        return { graded: true, ok: false, error: message, message, lastRun: { kind: 'error', message, result: { timedOut: true } } };
+      }
+      const summary = summarize(report);
+      $('#results').innerHTML = renderCheck(report, summary, { stdoutKind: item.checker.type });
+      const message = summary.ok ? `All ${summary.all.total} tests passed.`
+        : report.error ? report.error.summary
+          : `${summaryLine(summary)}. ${firstFailureText(report)}`;
+      return {
+        graded: true,
+        ok: summary.ok,
+        error: report.error ? report.error.summary : null,
+        message,
+        lastRun: { kind: report.error ? 'error' : summary.ok ? 'correct' : 'wrong', message: report.error ? report.error.traceback : message, result: { tests: report, summary } },
+      };
     },
 
     contextData: (item) => ({ checker: item.checker, packages: packagesFor(item) }),

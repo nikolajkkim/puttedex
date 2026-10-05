@@ -916,6 +916,33 @@ pre.py-trace { background: #fffaf0; color: #5a3d0a; }
 .py-rich { max-height: 360px; border: 0; border-radius: 0; }
 .py-printed summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); }
 .py-printed pre.py-out { margin-top: 0.35rem; border: 1px solid var(--line); border-radius: 8px; }
+.test-summary { margin: 0; font-weight: 600; font-size: 0.92rem; }
+.test-summary.is-pass { color: var(--fairway-dark); }
+.test-summary.is-fail { color: #7a2617; }
+.test-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
+.test-case { border: 1px solid var(--line); border-left: 4px solid #a8cfa3; border-radius: 8px; padding: 0.45rem 0.7rem; min-width: 0; }
+.test-case.fail { border-left-color: #d9826d; background: #fffaf8; }
+.test-head { display: flex; align-items: center; gap: 0.5rem; font-size: 0.88rem; }
+.test-icon { font-weight: 700; width: 1em; text-align: center; }
+.test-case.pass .test-icon { color: var(--fairway); }
+.test-case.fail .test-icon { color: #b2432c; }
+.test-status { margin-left: auto; font-size: 0.78rem; color: var(--muted); }
+.test-io { display: grid; gap: 0.25rem; margin: 0.4rem 0 0; font-size: 0.84rem; }
+.test-io > div { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); gap: 0.5rem; align-items: start; }
+.test-io dt { color: var(--muted); font-size: 0.78rem; padding-top: 0.15rem; }
+.test-io dd { margin: 0; min-width: 0; }
+code.test-value, pre.test-value {
+  font: 0.82rem/1.45 var(--font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+pre.test-value { margin: 0; padding: 0.3rem 0.5rem; background: #fbfbf6; border-radius: 6px; max-height: 200px; overflow-y: auto; }
+.test-msg { margin: 0.35rem 0 0; font-size: 0.84rem; color: #7a2617; }
+.test-case pre.py-trace { margin-top: 0.35rem; border-radius: 6px; }
+@media (max-width: 480px) {
+  .test-io > div { grid-template-columns: minmax(0, 1fr); gap: 0.1rem; }
+}
 .yardage-sub { margin: 0.2rem 0 0.35rem; font-size: 0.85rem; }
 .lesson pre.yardage-code { margin: 0 0 0.6rem; padding-top: 0.6rem; font-size: 0.82rem; }
 .lesson pre.yardage-code::before { content: none; }

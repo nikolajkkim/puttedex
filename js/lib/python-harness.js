@@ -1,6 +1,7 @@
 // The Python half of the Python runner: runs learner code and checks it, inside Pyodide.
 //
-// js/lib/python-engine.js loads this source into its own namespace (never the learner's) and calls `run_code`. Every call takes and returns JSON text, so the JS side needs no Pyodide
+// js/lib/python-engine.js loads this source into its own namespace (never the learner's) and calls `run_code`,
+// `check_code`, and `prepare_expected`. Every call takes and returns JSON text, so the JS side needs no Pyodide
 // proxies. It's a JS module (not a .py file) so the browser worker and the Node tests import the same text with no
 // build step. String.raw keeps Python's backslashes intact; don't use backticks or "${" in the Python below.
 
@@ -227,4 +228,170 @@ def run_code(code, setup):
     result["stderr"] = cap.err.getvalue()
     result["truncated"] = cap.out.truncated or cap.err.truncated
     return json.dumps(result)
+
+
+# ---------- Checking ----------
+
+def _normalize_output(text):
+    return "\n".join(line.rstrip() for line in text.rstrip().splitlines())
+
+
+def same(expected, got):
+    """Equality for grading: floats within a tolerance, bool never equal to int, list vs tuple distinguished,
+    dict subclasses (Counter, defaultdict) compared as dicts."""
+    if isinstance(expected, bool) or isinstance(got, bool):
+        return type(expected) is type(got) and expected == got
+    if isinstance(expected, (int, float)) and isinstance(got, (int, float)):
+        if isinstance(expected, float) or isinstance(got, float):
+            if math.isnan(expected) and math.isnan(got):
+                return True
+            return math.isclose(expected, got, rel_tol=1e-9, abs_tol=1e-9)
+        return expected == got
+    if isinstance(expected, dict) and isinstance(got, dict):
+        return expected.keys() == got.keys() and all(same(expected[k], got[k]) for k in expected)
+    if isinstance(expected, (list, tuple)) and isinstance(got, (list, tuple)):
+        return (isinstance(expected, list) == isinstance(got, list) and len(expected) == len(got)
+                and all(same(a, b) for a, b in zip(expected, got)))
+    try:
+        return bool(expected == got)
+    except Exception:
+        return False
+
+
+def _type_note(expected, got):
+    if type(expected) is type(got) or (isinstance(expected, dict) and isinstance(got, dict)):
+        return ""
+    if isinstance(expected, (int, float)) and isinstance(got, (int, float)) and not isinstance(got, bool):
+        return ""
+    article = lambda name: ("an " if name[0] in "aeiou" else "a ") + name
+    return " (expected " + article(type(expected).__name__) + ", got " + article(type(got).__name__) + ")"
+
+
+def _unordered(value):
+    if isinstance(value, (list, tuple)):
+        return type(value)(sorted(value, key=repr))
+    return value
+
+
+def _args(source):
+    """A fresh copy of a case's arguments: the source is evaluated anew for every call."""
+    if not source.strip():
+        return ()
+    return eval(compile("(" + source + ",)", SETUP_FILE, "eval"), {"__builtins__": builtins})
+
+
+def _case_input(checker, case):
+    if checker["type"] == "function":
+        return checker["function"] + "(" + case.get("args", "") + ")"
+    return case.get("setup", "")
+
+
+def _evaluate(code, checker, case, compiled=None):
+    """Run code against one case. Returns ("ok", value) | ("error", info) | ("missing", message) | ("mutated", msg).
+    stdout is returned alongside."""
+    kind = checker["type"]
+    ns = _fresh_namespace()
+    with _Captured() as cap:
+        try:
+            body = compiled if compiled is not None else _compile(code)[0]
+            if kind == "function":
+                exec(body, ns)
+                fn = ns.get(checker["function"])
+                if fn is None:
+                    outcome = ("missing", "Your code doesn't define a function named " + checker["function"] + ".")
+                elif not callable(fn):
+                    outcome = ("missing", checker["function"] + " is not a function.")
+                else:
+                    args = _args(case.get("args", ""))
+                    before = copy.deepcopy(args)
+                    value = fn(*args)
+                    if checker.get("noMutation") and not same(before, args):
+                        outcome = ("mutated", "Your function changed its input. Build a new value instead of "
+                                   "modifying the argument.")
+                    else:
+                        outcome = ("ok", value)
+            else:
+                _exec_setup(case.get("setup", ""), ns)
+                exec(body, ns)
+                if kind == "stdout":
+                    outcome = ("ok", None)
+                elif checker["variable"] in ns:
+                    outcome = ("ok", ns[checker["variable"]])
+                else:
+                    outcome = ("missing", "Your code doesn't create a variable named " + checker["variable"] + ".")
+        except SystemExit:
+            outcome = ("ok", None) if kind == "stdout" else ("missing", "Your code called exit() before finishing.")
+        except BaseException as exc:
+            outcome = ("error", error_info(exc, code))
+    if kind == "stdout" and outcome[0] == "ok":
+        outcome = ("ok", _normalize_output(cap.out.getvalue()))
+    return outcome, cap.out.getvalue(), cap.out.truncated
+
+
+_EXPECTED = {}
+
+
+def prepare_expected(key, solution, checker_json):
+    """Run the reference solution on every case once and keep its results (Python values) for checking."""
+    checker = json.loads(checker_json)
+    results = []
+    for case in checker["cases"]:
+        outcome, _, _ = _evaluate(solution, checker, case)
+        if outcome[0] != "ok":
+            detail = outcome[1]["traceback"] if outcome[0] == "error" else outcome[1]
+            raise RuntimeError("The reference solution fails on " + _case_input(checker, case) + ":\n" + detail)
+        value = outcome[1]
+        if checker.get("compare") == "unordered":
+            value = _unordered(value)
+        results.append(value)
+    _EXPECTED[key] = results
+    return json.dumps([short_repr(v) if checker["type"] != "stdout" else v for v in results])
+
+
+def check_code(key, code, checker_json):
+    """Check learner code against every case. Hidden cases never report their expected value or result."""
+    checker = json.loads(checker_json)
+    expected = _EXPECTED[key]
+    report = {"cases": [], "error": None, "stdout": "", "truncated": False}
+    try:
+        compiled = _compile(code)[0]
+    except BaseException as exc:
+        report["error"] = error_info(exc, code)
+        compiled = None
+    for i, case in enumerate(checker["cases"]):
+        visible = not case.get("hidden", False)
+        entry = {"visible": visible, "label": case.get("label", ""), "input": _case_input(checker, case),
+                 "ok": False, "reason": None, "message": "", "expected": None, "got": None}
+        if visible:
+            entry["expected"] = expected[i] if checker["type"] == "stdout" else short_repr(expected[i])
+        if compiled is None:
+            entry["reason"] = "error"
+            entry["message"] = report["error"]["summary"]
+            report["cases"].append(entry)
+            continue
+        outcome, out, truncated = _evaluate(code, checker, case, compiled)
+        if i == 0:
+            report["stdout"], report["truncated"] = out, truncated
+        want = expected[i]
+        if outcome[0] == "ok":
+            got = _unordered(outcome[1]) if checker.get("compare") == "unordered" else outcome[1]
+            entry["ok"] = same(want, got)
+            if not entry["ok"]:
+                entry["reason"] = "wrong"
+                note = _type_note(want, got) if visible else ""
+                entry["message"] = ("Printed output doesn't match." if checker["type"] == "stdout"
+                                    else ("Value doesn't match" if checker["type"] == "value"
+                                          else "Returned value doesn't match") + note + ".")
+            if visible:
+                entry["got"] = got if checker["type"] == "stdout" else short_repr(got)
+        elif outcome[0] == "error":
+            entry["reason"] = "error"
+            entry["message"] = outcome[1]["summary"]
+            if visible:
+                entry["traceback"] = outcome[1]["traceback"]
+        else:
+            entry["reason"] = outcome[0]
+            entry["message"] = outcome[1]
+        report["cases"].append(entry)
+    return json.dumps(report)
 `;

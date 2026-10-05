@@ -1,14 +1,34 @@
-// Every hole of every open tournament, checked against the real SQL engine and answer checker.
+// Every hole of every open tournament, checked against the real engine (sql.js or Pyodide) and answer checker.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { getSql } from './helpers.mjs';
+import { getSql, getPython } from './helpers.mjs';
 import { describeSchema } from '../js/lib/sql-runner.js';
 import { TOURNAMENTS, loadTournament, isOpen } from '../js/tournaments.js';
 import { checkGradedSql } from './sql-checks.mjs';
+import { checkGradedPython } from './python-checks.mjs';
 import { DIFFICULTIES, parFor } from '../js/data/par-config.js';
 
 const raw = Object.fromEntries(await Promise.all(TOURNAMENTS.filter(isOpen)
   .map(async (t) => [t.id, (await import(`../js/data/holes/${t.holeSet}.js`)).default])));
+
+const sharedFields = (assert, hole, t, i) => {
+  for (const field of ['title', 'lesson', 'interview', 'yardage', 'task', 'solution', 'hint']) assert.ok(hole[field], `has ${field}`);
+  assert.doesNotMatch(hole.lesson, /Interview angle/, 'the interview angle belongs in `interview`, not the lesson');
+  assert.ok(!('starter' in hole), 'no prefilled starter code: the editor opens blank');
+  assert.ok(DIFFICULTIES.includes(hole.difficulty), `difficulty is one of ${DIFFICULTIES.join('/')}`);
+  assert.ok(!('par' in raw[t.id][i]), 'no par in the data: it comes from difficulty (js/data/par-config.js)');
+  assert.equal(hole.par, parFor(hole.difficulty), 'par is computed from difficulty');
+};
+
+for (const meta of TOURNAMENTS.filter((t) => isOpen(t) && t.engine === 'python')) {
+  const t = await loadTournament(meta);
+  for (const [i, hole] of t.holes.entries()) {
+    test(`${t.id} hole ${i + 1} (${hole.id})`, async () => {
+      sharedFields(assert, hole, t, i);
+      checkGradedPython(assert, await getPython(), hole, { key: `${t.id}/${hole.id}`, tournamentId: t.id, html: hole.lesson });
+    });
+  }
+}
 
 for (const meta of TOURNAMENTS.filter((t) => isOpen(t) && t.engine === 'sql')) {
   const t = await loadTournament(meta);
@@ -20,12 +40,7 @@ for (const meta of TOURNAMENTS.filter((t) => isOpen(t) && t.engine === 'sql')) {
 
   for (const [i, hole] of t.holes.entries()) {
     test(`${t.id} hole ${i + 1} (${hole.id})`, async () => {
-      for (const field of ['title', 'lesson', 'interview', 'yardage', 'task', 'solution', 'hint']) assert.ok(hole[field], `has ${field}`);
-      assert.doesNotMatch(hole.lesson, /Interview angle/, 'the interview angle belongs in `interview`, not the lesson');
-      assert.ok(!('starter' in hole), 'no prefilled starter code: the editor opens blank');
-      assert.ok(DIFFICULTIES.includes(hole.difficulty), `difficulty is one of ${DIFFICULTIES.join('/')}`);
-      assert.ok(!('par' in raw[t.id][i]), 'no par in the data: it comes from difficulty (js/data/par-config.js)');
-      assert.equal(hole.par, parFor(hole.difficulty), 'par is computed from difficulty');
+      sharedFields(assert, hole, t, i);
       checkGradedSql(assert, await getSql(), t.seed, hole, { tournamentId: t.id, html: hole.lesson });
     });
   }

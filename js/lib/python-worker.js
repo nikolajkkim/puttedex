@@ -2,7 +2,7 @@
 // js/lib/python-runner.js creates it (as a module worker; Pyodide doesn't support classic workers), sends requests,
 // and terminates it on timeout. Requests are handled one at a time, in order.
 //
-// Messages in:  { id, op: 'init' | 'packages' | 'run', ...args }
+// Messages in:  { id, op: 'init' | 'packages' | 'run' | 'prepare' | 'check', ...args }
 // Messages out: { id, ok: true, value } or { id, ok: false, error: message }
 
 import { loadPyodide } from '../../vendor/pyodide/pyodide.mjs';
@@ -27,6 +27,8 @@ const OPS = {
   init: async () => ({ version: (await engine()).version }),
   packages: async ({ names }) => (await engine()).loadPackages(names),
   run: async ({ code, setup }) => (await engine()).run(code, setup),
+  prepare: async ({ key, solution, checker }) => (await engine()).prepare(key, solution, checker),
+  check: async ({ key, code, checker }) => (await engine()).check(key, code, checker),
 };
 
 let queue = Promise.resolve();
