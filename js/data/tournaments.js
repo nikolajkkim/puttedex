@@ -10,10 +10,12 @@
 //   blurb        one sentence for the schedule card
 //   description  a paragraph for the tournament page
 //   skills       short chips of what the tournament covers
-//   engine       'sql' (sql.js) or 'python' (Pyodide); picks the problem view's runner (js/ui/engines/)
-//   dataset      module in js/data/datasets/ whose SEED builds the database, for SQL tournaments
-//   packages     Python only: extra Pyodide packages every hole needs (e.g. ['numpy', 'pandas']). A hole or range
-//                problem can add its own with a `packages` field. Loaded once per page, on first use.
+//   engine       'sql' (sql.js), 'python' (Pyodide), or 'pandas' (Pyodide with pandas and DataFrame datasets);
+//                picks the problem view's runner (js/ui/engines/)
+//   dataset      module in js/data/datasets/: its SEED builds the database (SQL), or its FRAMES manifest lists the
+//                CSV tables (pandas)
+//   packages     Python and pandas: extra Pyodide packages every hole needs (e.g. ['numpy', 'pandas']). A hole or
+//                range problem can add its own with a `packages` field. Loaded once per page, on first use.
 //   holeSet      module in js/data/holes/, or null while the tournament has no holes yet
 //   rangeSet     module in js/data/range/ with this tournament's Driving Range problems (optional). They unlock
 //                according to RANGE_UNLOCK in js/data/range-config.js.
@@ -88,11 +90,19 @@ export const TOURNAMENTS = [
     id: 'pandas',
     title: 'pandas Wrangling',
     event: 'The DataFrame Championship',
-    blurb: 'Filter, group, merge, and reshape DataFrames. SQL skills, now in Python.',
-    description: 'Everything from the SQL tournaments, redone in pandas, plus reshaping, missing data, '
-      + 'and the idioms interviewers look for in take-home assignments.',
-    skills: ['DataFrames', 'groupby', 'merge', 'pivot'],
-    engine: 'python',
+    blurb: 'Filter, group, merge, reshape, and clean DataFrames: your SQL skills, translated to idiomatic pandas.',
+    description: 'Take-home assignments and live coding rounds expect pandas, and they expect it vectorized. '
+      + 'You\'ll translate what you already know from SQL (WHERE, GROUP BY, JOIN, window functions) into pandas, '
+      + 'one hole at a time, on CSV exports of the same golf world, messiness included: missing values, '
+      + 'duplicate rows, stray whitespace, dates and dollar amounts stored as text, and keys that don\'t match. '
+      + 'The back nine are interview questions: monthly trends, cleaning a messy export, reshaping with pivot_table '
+      + 'and melt, top N per group and change versus the previous round, and a capstone that cleans, merges, '
+      + 'aggregates, and reshapes to answer a business question.',
+    skills: ['DataFrames', 'groupby', 'merge', 'pivot', 'Cleaning', 'Dates'],
+    engine: 'pandas',
+    dataset: 'clubhouse-csv',
+    packages: ['numpy', 'pandas'],
+    prerequisite: 'python-fundamentals',
     holeSet: null,
   },
   {
