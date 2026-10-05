@@ -1,0 +1,31 @@
+player_id,name,country,handicap,is_pro,home_course_id,dues,joined_on
+1,Ava Birdwell,USA,2.4,True,1,0,2019-04-12
+2," Mateo Fairway",ESP,5.1,False,6,"$1,000",2020-06-03
+3,kenji sato,JPN,0.8,True,4,$0.00,2018-09-21
+4,Isla Macleod,SCO,,False,2,$800,2021-03-15
+5,Liam Chipman,usa,12.3,False,1,"$1,250",2022-05-30
+6,Priya Raman,IND,3.7,True,,,2019-11-08
+7,"OSCAR LINDQVIST ",SWE,8.9,False,5,900,2020-02-17
+8,Chloe Dubois,FRA,,False,,$850,2023-07-01
+9,Noah Greenfield,USA,1.5,True,3,$0,2017-08-25
+10,Sofia Rossi,ITA,15,False,6,950,2021-10-10
+11,Hamish Craig," Sco",4.2,False,2,$800,2018-04-04
+12,Mina Park,KOR,0.3,True,4,$0,2016-12-19
+13,Lucas Ferreira,BRA,18.2,False,,$ 1200,2026-01-14
+14,Grace Thompson,USA,,False,3,650,2026-02-02
+15,Erik Johansson,SWE,6.4,False,5,$800.00,2025-12-08
+16,Aiko Tanaka,JPN,9.8,True,4,$0,2026-01-27
+17,Zoe Brennan,IRL,7.2,False,2,650,2022-08-14
+18,Rafael  Ortiz,MEX,10.6,False,6,,2023-03-09
+19,Hannah Weber,"GER ",3.1,False,5,"$1,100",2019-05-22
+20,Tom Akers,AUS,0,True,8,0,2017-01-30
+21,Leila Haddad,FRA,13.4,False,,"$1,050",2024-04-18
+22,Jack Morrow,Usa,5.8,False,3,$650,2020-09-12
+23,Freya Holm,SWE,2.2,True,5,0,2018-06-06
+24," arjun mehta",IND,11.1,False,1,"$1,250",2024-11-03
+25,Emma Clarke,eng,4.9,False,2,1150,2021-01-25
+26,Diego Alvarez," esp ",,False,6,900,2025-05-16
+27,Yuki Mori,JPN,1.9,True,4,$0,2019-07-29
+28,Ruby Walsh,NZL,8,False,8,$700,2023-10-02
+29," noah GREENFIELD","usa ",,True,3,,2026-03-03
+30,leila haddad," Fra",,False,,,2026-03-05
