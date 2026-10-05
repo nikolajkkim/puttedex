@@ -227,3 +227,85 @@ test('Python: long printed output is clipped', () => {
   assert.match(md, new RegExp(`… \\(${5000 - CONTEXT_LIMITS.outputChars} more characters not shown\\)`));
   assert.match(md, /cut off by the runner/);
 });
+
+// ---------- pandas ----------
+
+const pandasChecker = {
+  type: 'dataframe', function: 'best_rounds', frames: ['rounds'], returns: 'DataFrame', rowOrder: 'require', index: 'ignore',
+  cases: [{ args: '3' }, { data: 'alt', args: '3', hidden: true, label: 'other data' }, { args: '1', hidden: true, label: 'n = 1' }],
+};
+const PANDAS_SOLUTION = "def best_rounds(rounds, n):\n    return rounds.sort_values(['score', 'round_id']).head(n)[['round_id', 'score']]";
+const pandasCtx = async (extra = {}) => {
+  const { getPandas } = await import('./helpers.mjs');
+  const { py, dataset } = await getPandas();
+  return {
+    py,
+    dataset,
+    ctx: {
+      engine: 'pandas',
+      location: { kind: 'hole', tournament: 'pandas Wrangling', hole: 4, holes: 18 },
+      title: 'Top rounds',
+      par: 1,
+      tags: [],
+      task: '<p>Write <code>def best_rounds(rounds, n)</code>.</p>',
+      background: { lesson: '<p>Sort.</p><pre>df.sort_values("x")</pre>', note: 'SQL equivalent: ORDER BY' },
+      code: 'def best_rounds(rounds, n):\n    return rounds.head(n)',
+      lastRun: null,
+      progress: { attempts: 1, strokes: 1, par: 1, hintsUsed: 0, solved: false },
+      solution: null,
+      data: { checker: pandasChecker, packages: ['pandas'], tables: ['rounds'], frames: py.describeFrames(dataset, 'main', ['rounds']) },
+      ...extra,
+    },
+  };
+};
+
+test('pandas: DataFrame schemas with 3 sample rows, how it is checked, in order', async () => {
+  const { ctx } = await pandasCtx();
+  const md = buildContext(ctx);
+  assert.deepEqual(headings(md), ['Where I am', 'The problem', 'Background', 'The DataFrames', 'How it\'s checked', 'My current code', 'My last run', 'My progress on this problem']);
+  assert.match(md, /### rounds \(221 rows x 8 columns\)/);
+  assert.match(md, /- `played_on`: str\n/);
+  assert.match(md, /- `putts`: float64, \d+ missing/);
+  const sample = md.split('Sample rows:\n\n')[1].split('\n\n')[0].split('\n');
+  assert.equal(sample.length, 2 + 3, 'header, rule, and 3 sample rows');
+  assert.match(md, /calls `best_rounds\(rounds, 3\)`.*a DataFrame/);
+  assert.match(md, /Row order is graded\. The index is ignored\./);
+  assert.match(md, /1 visible test.*2 hidden tests/);
+  assert.doesNotMatch(md, /## Reference solution/);
+});
+
+test('pandas Run: printed output and the returned DataFrame as a Markdown table (first 15 rows)', async () => {
+  const { py, dataset, ctx } = await pandasCtx();
+  const result = py.runFrames('print(len(rounds))\nrounds', { dataset, variant: 'main', frames: ['rounds'] });
+  const md = buildContext({ ...ctx, lastRun: { kind: 'practice', message: '', result } });
+  assert.match(md, /Printed output:\n\n```\n221\n```/);
+  assert.match(md, /Value of the last line \(DataFrame\): 221 rows x 8 columns \(first 15 shown\):/);
+  const table = md.split('(first 15 shown):\n\n')[1].split('\n\n')[0].split('\n');
+  assert.equal(table.length, 2 + 15);
+  assert.match(table[0], /^\| \(index\) \| round_id \| player_id/);
+  assert.match(md, /\| NaN \|/, 'missing values copied as NaN');
+});
+
+test('pandas Submit: visible feedback with differing rows; hidden tests only pass/fail and the kind', async () => {
+  const { py, dataset, ctx } = await pandasCtx();
+  const { summarize } = await import('../js/lib/python-engine.js');
+  const checker = { ...pandasChecker, dataset };
+  py.prepare('ctx-pandas', PANDAS_SOLUTION, checker);
+  const tests = py.check('ctx-pandas', "def best_rounds(rounds, n):\n    return rounds.sort_values('score', ascending=False).head(n)[['round_id', 'score']]", checker);
+  const summary = summarize(tests);
+  const md = buildContext({ ...ctx, lastRun: { kind: 'wrong', message: 'Not yet', result: { tests, summary } } });
+  assert.match(md, /Tests: 0 of 3 passed \(0 of 1 visible, 0 of 2 hidden\)/);
+  assert.match(md, /- Visible test \(`best_rounds\(rounds, 3\)`\): FAIL\. 3 of 3 rows differ/);
+  assert.match(md, /\| row 1 expected \|/);
+  assert.match(md, /- Hidden test 1: FAIL\. Some values don't match\.\n- Hidden test 2: FAIL\. Some values don't match\./);
+  // The full expected table is never copied: only the differing rows the page shows.
+  const expected = py.prepare('ctx-pandas-2', PANDAS_SOLUTION, checker);
+  assert.equal(expected[1].table.rowCount, 3);
+  assert.doesNotMatch(md, /Expected result/);
+});
+
+test('pandas: the solution appears only when passed in; a missing data panel is noted', async () => {
+  const { ctx } = await pandasCtx();
+  assert.match(buildContext({ ...ctx, solution: PANDAS_SOLUTION }), /## Reference solution\n\n```python\ndef best_rounds/);
+  assert.match(buildContext({ ...ctx, data: { ...ctx.data, frames: null } }), /weren't loaded yet/);
+});
