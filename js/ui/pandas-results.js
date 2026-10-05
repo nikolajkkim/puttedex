@@ -59,7 +59,7 @@ export function renderFrameRun(result, { inputsNote = '' } = {}) {
 /** The first mismatching rows, expected above got, with wrong cells marked. */
 function diffHTML(diff) {
   const rows = diff.rows.map((r) => `
-    <tr class="diff-exp"><th scope="row">Row ${r.row + 1}<span>expected</span></th>${r.expected.map((c, i) => cellHTML(c, r.bad.includes(i) ? 'is-bad' : '')).join('')}</tr>
+    <tr class="diff-exp"><th scope="row">${r.label === null || r.label === undefined ? `Row ${r.row + 1}` : esc(r.label)}<span>expected</span></th>${r.expected.map((c, i) => cellHTML(c, r.bad.includes(i) ? 'is-bad' : '')).join('')}</tr>
     <tr class="diff-got"><th scope="row"><span>yours</span></th>${r.got.map((c, i) => cellHTML(c, r.bad.includes(i) ? 'is-bad' : '')).join('')}</tr>`).join('');
   return `
     <div class="table-scroll frame-scroll">
