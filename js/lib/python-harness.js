@@ -273,11 +273,14 @@ def _unordered(value):
     return value
 
 
+def _capture(*args, **kwargs):
+    return list(args), kwargs
+
+
 def _args(source):
-    """A fresh copy of a case's arguments: the source is evaluated anew for every call."""
-    if not source.strip():
-        return ()
-    return eval(compile("(" + source + ",)", SETUP_FILE, "eval"), {"__builtins__": builtins})
+    """Fresh (args, kwargs) for a case: the source, e.g. "10.0, slope=130", is evaluated anew for every call."""
+    return eval(compile("_capture(" + source + ")", SETUP_FILE, "eval"),
+                {"__builtins__": builtins, "_capture": _capture})
 
 
 def _case_input(checker, case):
@@ -304,7 +307,7 @@ def _evaluate(code, checker, case, compiled=None):
                 else:
                     args = _args(case.get("args", ""))
                     before = copy.deepcopy(args)
-                    value = fn(*args)
+                    value = fn(*args[0], **args[1])
                     if checker.get("noMutation") and not same(before, args):
                         outcome = ("mutated", "Your function changed its input. Build a new value instead of "
                                    "modifying the argument.")

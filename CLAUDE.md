@@ -219,7 +219,7 @@ The graded-SQL rules above live in `tests/sql-checks.mjs` and apply to holes and
 
 ### Python holes
 
-Same fields as a SQL hole (minus `orderMatters`, `alternatives`/`mistakes` stay), plus a **`checker`** that says
+See `js/data/holes/python-fundamentals.js` for 18 worked examples. Same fields as a SQL hole (minus `orderMatters`, `alternatives`/`mistakes` stay), plus a **`checker`** that says
 how the answer is graded, and optionally `packages` (extra Pyodide packages; the tournament's `packages` apply too).
 The checker format is documented at the top of `js/lib/python-engine.js`:
 

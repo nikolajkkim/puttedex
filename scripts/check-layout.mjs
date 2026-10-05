@@ -16,10 +16,12 @@ import { tmpdir } from 'node:os';
 const ROOT = new URL('..', import.meta.url).pathname;
 const WIDTHS = [1440, 1280, 1024, 860, 768, 390, 320];
 const WIDE_QUERY = 'SELECT * FROM rounds r JOIN players p ON p.player_id = r.player_id JOIN courses c ON c.course_id = r.course_id';
-const PAGES = ['index.html', 'range.html', 'tournament.html?t=sql-basics', 'tournament.html?t=sql-joins', 'tournament.html?t=sql-windows', 'tournament.html?t=pandas',
-  'hole.html?t=sql-basics&h=10', 'hole.html?t=sql-windows&h=15'];
+const PAGES = ['index.html', 'range.html', 'tournament.html?t=sql-basics', 'tournament.html?t=sql-joins', 'tournament.html?t=sql-windows', 'tournament.html?t=python-fundamentals', 'tournament.html?t=pandas',
+  'hole.html?t=sql-basics&h=10', 'hole.html?t=sql-windows&h=15',
+  'hole.html?t=python-fundamentals&h=18'];
 
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.wasm': 'application/wasm', '.json': 'application/json' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css',
+  '.wasm': 'application/wasm', '.json': 'application/json', '.zip': 'application/zip' };
 const server = createServer(async (req, res) => {
   const path = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname)).replace(/^\/+/, '') || 'index.html';
   try {
@@ -85,11 +87,33 @@ for (const width of WIDTHS) {
     await sleep(1200);
     await measure(`${width}px ${path}`);
     if (path.startsWith('hole.html')) {
-      await evaluate(`(() => { const cm = document.querySelector('.CodeMirror').CodeMirror; cm.setValue(${JSON.stringify(WIDE_QUERY)}); document.querySelector('#run-btn').click(); })()`);
+      // Python answers arrive asynchronously (and the first run waits for Pyodide): wait until Run/Submit is free.
+      const settled = `(async () => {
+        const state = () => document.querySelector('#runtime-status')?.dataset.state ?? 'ready';
+        const free = () => !document.querySelector('#submit-btn').disabled && ['ready', 'failed'].includes(state());
+        for (let i = 0; i < 300 && !free(); i++) await new Promise((r) => setTimeout(r, 100));
+        return state();
+      })()`;
+      if ((await evaluate(settled)) !== 'ready') {
+        failures.push(`${width}px ${path}: the runtime didn't load`);
+        continue;
+      }
+      const wide = path.includes('t=python') ? `print(${JSON.stringify(WIDE_QUERY)} * 3)\n${JSON.stringify(WIDE_QUERY)}` : WIDE_QUERY;
+      await evaluate(`(() => { const cm = document.querySelector('.CodeMirror').CodeMirror; cm.setValue(${JSON.stringify(wide)}); document.querySelector('#run-btn').click(); })()`);
       await sleep(150);
+      await evaluate(settled);
       await measure(`${width}px ${path} after running a wide query`);
-      await evaluate(`import('./js/data/holes/sql-basics.js').then((m) => { const cm = document.querySelector('.CodeMirror').CodeMirror; cm.setValue(m.default[9].solution); document.querySelector('#submit-btn').click(); document.querySelector('.feedback details').open = true; })`);
+      // Submit this hole's own pro line, then open it in the feedback.
+      await evaluate(`(async () => {
+        const q = new URLSearchParams(location.search);
+        const { tournamentById, loadTournament } = await import('./js/tournaments.js');
+        const t = await loadTournament(tournamentById(q.get('t')));
+        document.querySelector('.CodeMirror').CodeMirror.setValue(t.holes[Number(q.get('h')) - 1].solution);
+        document.querySelector('#submit-btn').click();
+      })()`);
       await sleep(150);
+      await evaluate(settled);
+      await evaluate(`document.querySelector('.feedback details').open = true`);
       await measure(`${width}px ${path} after solving (pro's line open)`);
       await evaluate('localStorage.clear()');
     }

@@ -82,7 +82,7 @@ export const TOURNAMENTS = [
     engine: 'python',
     packages: [],
     prerequisite: 'sql-windows',
-    holeSet: null,
+    holeSet: 'python-fundamentals',
   },
   {
     id: 'pandas',

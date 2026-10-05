@@ -6,7 +6,8 @@
 //   { type: 'function', function: 'name', cases, noMutation?, compare? }   call name(*args) and compare the return
 //   { type: 'stdout', cases }                                              compare printed output
 //   { type: 'value', variable: 'name', cases, compare? }                   compare a variable the code creates
-// Each case is { args } (function: Python source of the arguments, e.g. "[72, 68], 2") or { setup } (stdout and
+// Each case is { args } (function: Python source of the arguments, keywords allowed, e.g. "[72, 68], par=70") or
+// { setup } (stdout and
 // value: Python source run first, defining the inputs), plus optional hidden: true and label. Expected values are
 // never written in the data: they come from running the reference solution on the same case.
 // compare: 'unordered' ignores the order of a returned list or tuple.
