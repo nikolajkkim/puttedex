@@ -11,6 +11,12 @@ export const PYTHON = {
     repr: 400, // characters of a value's repr shown for return values and the last expression
     frames: 8, // traceback lines kept from the learner's own code
   },
+  // Packages every pandas problem (engine 'pandas') loads; Pyodide's lockfile adds their dependencies (numpy,
+  // python-dateutil, pytz, six). Their wheels are vendored in vendor/pyodide/ (tests/vendor.test.mjs checks).
+  pandasPackages: ['pandas'],
+  // DataFrames and Series: rows shown in Run's results and the checker's expected/got, and sample rows per table
+  // in the data panel.
+  tableRows: { display: 20, sample: 5 },
   // Values from these modules may render as HTML (their _repr_html_) in Run's output, e.g. pandas DataFrames.
   // Anything else is shown as its repr.
   richDisplayModules: ['pandas'],

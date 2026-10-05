@@ -13,10 +13,13 @@
 // compare: 'unordered' ignores the order of a returned list or tuple.
 
 import { HARNESS_PY } from './python-harness.js';
+import { PANDAS_HARNESS_PY } from './pandas-harness.js';
 import { PYTHON } from '../data/python-config.js';
 
 /** Wrap a loaded Pyodide. Returns the engine API; every method is synchronous except loadPackages. */
-export function createPythonEngine(pyodide, { limits = PYTHON.limits, richModules = PYTHON.richDisplayModules } = {}) {
+export function createPythonEngine(pyodide, {
+  limits = PYTHON.limits, richModules = PYTHON.richDisplayModules, tableRows = PYTHON.tableRows,
+} = {}) {
   const ns = pyodide.globals.get('dict')();
   pyodide.runPython(HARNESS_PY, { globals: ns });
   const call = (name, ...args) => {
@@ -29,6 +32,10 @@ export function createPythonEngine(pyodide, { limits = PYTHON.limits, richModule
   };
   call('configure', JSON.stringify({ limits, rich_modules: richModules }));
   const loaded = new Set();
+  let pandasReady = false;
+  const requirePandas = () => {
+    if (!pandasReady) throw new Error('pandas isn\'t loaded: call loadPackages([\'pandas\']) first.');
+  };
   const version = pyodide.runPython('import sys; ".".join(map(str, sys.version_info[:3]))');
 
   return {
@@ -40,6 +47,39 @@ export function createPythonEngine(pyodide, { limits = PYTHON.limits, richModule
       if (missing.length === 0) return;
       await pyodide.loadPackage(missing, { messageCallback: () => {}, errorCallback: () => {} });
       missing.forEach((n) => loaded.add(n));
+      if (loaded.has('pandas') && !pandasReady) {
+        // Importing pandas takes a moment, so it happens here (while loading), not in a timed run.
+        pyodide.runPython(PANDAS_HARNESS_PY, { globals: ns });
+        call('configure_frames', JSON.stringify(tableRows));
+        pandasReady = true;
+      }
+    },
+
+    /** Whether pandas (and the DataFrame harness) is loaded. */
+    get pandas() {
+      return pandasReady;
+    },
+
+    /** Register a dataset variant's tables ({ table: csv text }); each is read once with pd.read_csv. */
+    loadData(dataset, variant, tables) {
+      requirePandas();
+      return JSON.parse(call('register_frames', dataset, variant, JSON.stringify(tables)));
+    },
+
+    /** The data panel: [{ name, shape, columns: [{ name, dtype, missing }], sample: table }] for the named tables. */
+    describeFrames(dataset, variant, tables) {
+      requirePandas();
+      return JSON.parse(call('describe_frames', dataset, variant, JSON.stringify(tables)));
+    },
+
+    /**
+     * Run code with tables defined: { dataset, variant, frames: [names], setup?, call?: { function, args } }.
+     * → like run(), plus called (the call shown, when the function was run for you) and returnedNone.
+     * DataFrame and Series values carry a `table` (js/lib/pandas-harness.js frame_table) instead of HTML.
+     */
+    runFrames(code, options) {
+      requirePandas();
+      return JSON.parse(call('run_frames', code, JSON.stringify(options)));
     },
 
     /** Run code in a fresh namespace after `setup`. → { stdout, stderr, truncated, value: { repr, html, type } | null, error } */
