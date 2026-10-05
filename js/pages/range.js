@@ -4,8 +4,10 @@ import { DIFFICULTIES, DIFFICULTY_LABEL, PAR_BY_DIFFICULTY } from '../data/par-c
 import * as progress from '../progress.js';
 import * as range from '../range.js';
 import { $, esc, BRAND_SVG, scoreMark } from '../ui/dom.js';
+import { mountPracticeBadge } from '../ui/practice-badge.js';
 
 $('#brand').insertAdjacentHTML('afterbegin', BRAND_SVG);
+mountPracticeBadge();
 const app = $('#app');
 
 const problems = await range.loadRange();

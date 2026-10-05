@@ -92,6 +92,7 @@ course map) goes to `tournament.html?t=<id>#holes`, and v1's `course.html?hole=<
   hard-coded. It compares values (not column names) with float tolerance. **Column order is graded**, and row order
   is graded only when the hole sets `orderMatters: true`. Both modules are DOM-free and take the `SQL` object as a
   parameter, so the Node tests exercise exactly the browser code path.
+- `js/settings.js`: per-browser settings outside progress (today: practice mode; see "Practice mode").
 - `js/progress.js` (storage, v4): holes' strokes/hints/solved/draft code, per-tournament archived rounds,
   `roundSummary()`, `bestRound()`, `startNewRound()`, range records (`getRangeRecord` / `updateRangeRecord`, fields
   in `blankRange()`), and `migrate()`: v1 ("shots", key `puttedex.progress.v1`, kept as a backup), v2 (no range),
@@ -269,7 +270,8 @@ change it:
 - `{ rule: 'always' }`: no lock.
 
 Locked problems stay in the list, with the reason ("Finish SQL Basics to unlock (3/18 holes)"), and their direct links
-show the same message. `unlockState()` in `js/range.js` implements the rules and writes the messages.
+show the same message. `unlockState()` in `js/range.js` implements the rules and writes the messages. Practice mode
+(below) overrides every rule.
 
 The same config file holds the other range rules:
 - `SOLUTION_UNLOCK_FAILED_ATTEMPTS`: the pro's line shows after a solve or this many misses.
@@ -280,6 +282,20 @@ The same config file holds the other range rules:
   last solve) and how many weakest topics to drill.
 - `TIMED_ROUND`: problems per round, minutes, and what an unsolved problem scores.
 - `TOPICS`, the allowed tags. (Difficulty labels and par live in `js/data/par-config.js`.)
+
+### Practice mode
+
+A per-browser setting that **bypasses every unlock rule**, so any tournament or range set that exists can be opened
+without finishing the ones before it. Tournaments marked "coming soon" stay closed (there's nothing to play). It's
+off by default and toggled in the locker room on the schedule page (`#practice-mode`). While it's on, every page
+shows a "Practice mode" badge in the top bar (`js/ui/practice-badge.js`).
+
+- Stored in `localStorage['puttedex.settings']` by `js/settings.js` (`isPracticeMode`, `setPracticeMode`), apart
+  from progress: it isn't exported or imported, and "Reset progress" keeps it.
+- Today the only unlock rule is the range's `RANGE_UNLOCK`: `unlockState()` and `annotate()` take a `practice`
+  option that defaults to the setting. Tournaments themselves are never locked (a `prerequisite` is only a
+  recommendation). **Any new unlock rule must also honor practice mode**, with a test like the ones in
+  `tests/range-logic.test.mjs`.
 
 ### How to add range problems
 

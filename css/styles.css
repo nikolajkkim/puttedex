@@ -948,3 +948,18 @@ pre.test-value { margin: 0; padding: 0.3rem 0.5rem; background: #fbfbf6; border-
 .lesson pre.yardage-code::before { content: none; }
 .yardage-runtime { font-size: 0.82rem; color: var(--muted); margin: 0.3rem 0 0.5rem; }
 
+/* ---------- Practice mode (js/settings.js) ---------- */
+.practice-badge {
+  align-self: center;
+  font-size: 0.72rem !important;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fairway-deep) !important;
+  background: var(--sand);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem !important;
+  white-space: nowrap;
+}
+.switch { display: flex; align-items: flex-start; gap: 0.6rem; cursor: pointer; font-size: 0.9rem; }
+.switch input { width: 1.1rem; height: 1.1rem; margin: 0.15rem 0 0; accent-color: var(--fairway); flex: none; }

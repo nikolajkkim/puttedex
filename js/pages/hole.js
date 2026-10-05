@@ -1,12 +1,14 @@
 import { tournamentById, loadTournament, isOpen, urls, HOLES_PER_TOURNAMENT } from '../tournaments.js';
 import * as progress from '../progress.js';
 import { $, esc, BRAND_SVG, crumbs, scoreMark } from '../ui/dom.js';
+import { mountPracticeBadge } from '../ui/practice-badge.js';
 import { createEditor, highlightCode } from '../ui/editor.js';
 import { editorCardHTML, resultsHTML, showFeedback } from '../ui/workspace.js';
 import { createWorkspace, hasEngine } from '../ui/engines/index.js';
 import { mountCopyContext } from '../ui/copy-context.js';
 
 $('#brand').insertAdjacentHTML('afterbegin', BRAND_SVG);
+mountPracticeBadge();
 
 const app = $('#app');
 const meta = tournamentById(new URLSearchParams(location.search).get('t') ?? 'sql-basics');

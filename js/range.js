@@ -10,6 +10,7 @@ import {
 import { DIFFICULTIES, DIFFICULTY_LABEL, parFor } from './data/par-config.js';
 import { TOURNAMENTS, loadTournament } from './tournaments.js';
 import * as progress from './progress.js';
+import { isPracticeMode } from './settings.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -49,9 +50,10 @@ export async function loadRange() {
 
 /**
  * Whether a tournament's range problems are unlocked, and the message to show when they aren't.
- * `rule` defaults to RANGE_UNLOCK; tests pass their own.
+ * `rule` defaults to RANGE_UNLOCK; tests pass their own. Practice mode (js/settings.js) unlocks everything.
  */
-export function unlockState(tournament, rule = RANGE_UNLOCK) {
+export function unlockState(tournament, rule = RANGE_UNLOCK, { practice = isPracticeMode() } = {}) {
+  if (practice) return { unlocked: true, message: '' };
   const finishedBefore = progress.rounds(tournament).length > 0; // any complete round, archived or current
   const current = progress.roundSummary(tournament);
   switch (rule.rule) {
@@ -140,10 +142,12 @@ export function recordHint(problem, now = new Date()) {
  * Attach everything the pages need to each problem: { rec, status, locked, lockMessage }.
  * Unlock state is computed once per tournament.
  */
-export function annotate(problems, { now = new Date(), rule = RANGE_UNLOCK, records = progress.allRangeRecords() } = {}) {
+export function annotate(problems, {
+  now = new Date(), rule = RANGE_UNLOCK, records = progress.allRangeRecords(), practice = isPracticeMode(),
+} = {}) {
   const unlockByTournament = new Map();
   return problems.map((p) => {
-    if (!unlockByTournament.has(p.tournament.id)) unlockByTournament.set(p.tournament.id, unlockState(p.tournament, rule));
+    if (!unlockByTournament.has(p.tournament.id)) unlockByTournament.set(p.tournament.id, unlockState(p.tournament, rule, { practice }));
     const { unlocked, message } = unlockByTournament.get(p.tournament.id);
     const rec = { ...progress.blankRange(), ...(records[p.key] ?? {}) };
     return { ...p, rec, status: statusOf(rec, now), locked: !unlocked, lockMessage: message };

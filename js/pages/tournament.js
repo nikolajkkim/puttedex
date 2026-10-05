@@ -1,10 +1,12 @@
 import { tournamentById, loadTournament, isOpen, prerequisiteOf, urls, HOLES_PER_TOURNAMENT } from '../tournaments.js';
 import * as progress from '../progress.js';
 import { $, esc, BRAND_SVG, crumbs } from '../ui/dom.js';
+import { mountPracticeBadge } from '../ui/practice-badge.js';
 import { renderScorecard } from '../ui/scorecard.js';
 import { renderCourseMap } from '../ui/course-map.js';
 
 $('#brand').insertAdjacentHTML('afterbegin', BRAND_SVG);
+mountPracticeBadge();
 const app = $('#app');
 
 const meta = tournamentById(new URLSearchParams(location.search).get('t'));

@@ -13,6 +13,7 @@ const progress = await import('../js/progress.js');
 const range = await import('../js/range.js');
 const { REVIEW, TIMED_ROUND, SOLUTION_UNLOCK_FAILED_ATTEMPTS } = await import('../js/data/range-config.js');
 const { parFor } = await import('../js/data/par-config.js');
+const settings = await import('../js/settings.js');
 
 const DAY = 24 * 60 * 60 * 1000;
 const T0 = new Date('2026-10-01T09:00:00Z');
@@ -67,6 +68,26 @@ test('annotate locks per tournament', () => {
   assert.deepEqual(list.map((p) => p.locked), [true, true, true, true, false]);
   assert.match(list[0].lockMessage, /^Finish Tour A to unlock/);
   assert.equal(list[4].lockMessage, '');
+});
+
+test('practice mode unlocks every range set; turning it off restores the rule', () => {
+  const rule = { rule: 'tournament-complete' };
+  assert.equal(settings.isPracticeMode(), false, 'off by default');
+  settings.setPracticeMode(true);
+  assert.deepEqual(range.unlockState(tourA, rule), { unlocked: true, message: '' });
+  assert.deepEqual(range.annotate(problems, { now: T0, rule }).map((p) => p.locked), [false, false, false, false, false]);
+  assert.equal(range.timedRoundPicks(range.annotate(problems, { now: T0, rule }), () => 0).length > 0, true, 'round picks include formerly locked problems');
+  settings.setPracticeMode(false);
+  assert.equal(range.unlockState(tourA, rule).unlocked, false);
+  assert.equal(store.get(settings.SETTINGS_KEY), '{"practiceMode":false}', 'stored apart from progress');
+});
+
+test('practice mode survives a progress reset and stays out of exported progress', () => {
+  settings.setPracticeMode(true);
+  progress.reset();
+  assert.equal(settings.isPracticeMode(), true);
+  assert.doesNotMatch(progress.exportJson(), /practice/i);
+  settings.setPracticeMode(false);
 });
 
 // ---------- status, review queue, solution unlock ----------

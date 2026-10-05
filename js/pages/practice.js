@@ -5,12 +5,14 @@
 import * as range from '../range.js';
 import * as progress from '../progress.js';
 import { $, esc, BRAND_SVG, crumbs } from '../ui/dom.js';
+import { mountPracticeBadge } from '../ui/practice-badge.js';
 import { createEditor, highlightCode } from '../ui/editor.js';
 import { editorCardHTML, resultsHTML, showFeedback } from '../ui/workspace.js';
 import { createWorkspace, hasEngine } from '../ui/engines/index.js';
 import { mountCopyContext } from '../ui/copy-context.js';
 
 $('#brand').insertAdjacentHTML('afterbegin', BRAND_SVG);
+mountPracticeBadge();
 const app = $('#app');
 const params = new URLSearchParams(location.search);
 const key = params.get('p') ?? '';

@@ -10,8 +10,10 @@
 //   blurb        one sentence for the schedule card
 //   description  a paragraph for the tournament page
 //   skills       short chips of what the tournament covers
-//   engine       'sql' (sql.js) or, later, 'python' (Pyodide)
+//   engine       'sql' (sql.js) or 'python' (Pyodide); picks the problem view's runner (js/ui/engines/)
 //   dataset      module in js/data/datasets/ whose SEED builds the database, for SQL tournaments
+//   packages     Python only: extra Pyodide packages every hole needs (e.g. ['numpy', 'pandas']). A hole or range
+//                problem can add its own with a `packages` field. Loaded once per page, on first use.
 //   holeSet      module in js/data/holes/, or null while the tournament has no holes yet
 //   rangeSet     module in js/data/range/ with this tournament's Driving Range problems (optional). They unlock
 //                according to RANGE_UNLOCK in js/data/range-config.js.
@@ -71,11 +73,15 @@ export const TOURNAMENTS = [
     id: 'python-fundamentals',
     title: 'Python Fundamentals',
     event: 'The Pyodide Pro-Am',
-    blurb: 'Lists, dicts, comprehensions, and functions, with Python running right in your browser.',
-    description: 'The Python every data scientist is expected to write fluently in a live coding round: '
-      + 'core data structures, comprehensions, functions, and the classic string and counting problems.',
-    skills: ['Data structures', 'Comprehensions', 'Functions'],
+    blurb: 'Lists, dicts, sets, comprehensions, functions, and clean-up code, with Python running right in your browser.',
+    description: 'The Python every data scientist is expected to write fluently in a live coding round. You\'ll work '
+      + 'with scorecards as lists, dicts, sets, and tuples, write comprehensions and functions, count and group with '
+      + 'collections, and handle messy input with try/except. The back nine are interview questions: group-by in '
+      + 'pure Python, a classic algorithm puzzle, and cleaning and summarizing a messy file of round records.',
+    skills: ['Data structures', 'Comprehensions', 'Functions', 'Strings', 'collections', 'Error handling'],
     engine: 'python',
+    packages: [],
+    prerequisite: 'sql-windows',
     holeSet: null,
   },
   {

@@ -1,8 +1,11 @@
 import { loadAll, isOpen, prerequisiteOf, urls, HOLES_PER_TOURNAMENT } from '../tournaments.js';
 import * as progress from '../progress.js';
+import { isPracticeMode, setPracticeMode, SETTINGS_KEY } from '../settings.js';
 import { $, esc, BRAND_SVG } from '../ui/dom.js';
+import { mountPracticeBadge } from '../ui/practice-badge.js';
 
 $('#brand').insertAdjacentHTML('afterbegin', BRAND_SVG);
+const badge = mountPracticeBadge();
 
 const tournaments = await loadAll();
 
@@ -115,6 +118,23 @@ $('#reset-btn').addEventListener('click', () => {
   render();
   notify('Progress cleared. Fresh scorecard, new season.');
 });
+
+// Practice mode (js/settings.js): bypasses unlock rules. The badge in the top bar shows while it's on.
+const practiceToggle = $('#practice-toggle');
+const renderPractice = () => {
+  practiceToggle.checked = isPracticeMode();
+  $('#practice-state').textContent = practiceToggle.checked ? 'on' : 'off';
+};
+practiceToggle.addEventListener('change', () => {
+  setPracticeMode(practiceToggle.checked);
+  renderPractice();
+  badge.refresh();
+  notify(practiceToggle.checked
+    ? 'Practice mode is on: every Driving Range set is open, whatever you have finished.'
+    : 'Practice mode is off: the usual unlock rules apply again.');
+});
+window.addEventListener('storage', (e) => { if (e.key === SETTINGS_KEY) renderPractice(); });
+renderPractice();
 
 // Progress may change in another tab; keep this page in sync.
 window.addEventListener('storage', (e) => { if (e.key === progress.STORAGE_KEY) render(); });
