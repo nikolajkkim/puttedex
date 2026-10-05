@@ -948,6 +948,32 @@ pre.test-value { margin: 0; padding: 0.3rem 0.5rem; background: #fbfbf6; border-
 .lesson pre.yardage-code::before { content: none; }
 .yardage-runtime { font-size: 0.82rem; color: var(--muted); margin: 0.3rem 0 0.5rem; }
 
+/* ---------- pandas results and data panel (js/ui/pandas-results.js) ---------- */
+.frame-scroll { max-height: 420px; }
+.py-block .frame-scroll { border: 0; border-radius: 0; }
+.py-block .results-meta { padding: 0.35rem 0.65rem 0; margin: 0; }
+.frame-table th.idx, .frame-table td.idx { color: var(--muted); background: #f3f5ee; font-family: var(--font-mono); font-size: 0.78rem; }
+.frame-table th.idx { background: #dfe8da; }
+.frame-table td, .diff-table td, .dtype-table td { font-family: var(--font-mono); font-size: 0.8rem; }
+.diff-table th[scope="row"] { position: static; font-family: var(--font-body); font-weight: 600; background: transparent; }
+.diff-table th[scope="row"] span { display: block; font-weight: 400; color: var(--muted); font-size: 0.72rem; }
+.diff-table tr.diff-exp td, .diff-table tr.diff-exp th { border-bottom: 0; background: #f6faf4; }
+.diff-table tr.diff-got td, .diff-table tr.diff-got th { border-bottom: 2px solid var(--line); background: #fff; }
+.diff-table td.is-bad { background: #fde8e2 !important; color: #7a2617; font-weight: 600; }
+.diff-table tr.diff-exp td.is-bad { background: #e3f1dd !important; color: var(--fairway-dark); }
+.test-case .table-scroll { margin-top: 0.35rem; background: #fff; }
+.test-call { margin: 0.3rem 0 0; font-size: 0.82rem; color: var(--muted); overflow-wrap: anywhere; }
+.frame-view { margin-top: 0.4rem; }
+.frame-view summary { cursor: pointer; font-size: 0.84rem; color: var(--muted); }
+.frame-view .results-meta { margin: 0.35rem 0 0.25rem; }
+.data-panel { min-width: 0; }
+.data-panel .table-scroll { margin: 0.35rem 0 0.2rem; }
+.frame-info { min-width: 0; }
+.frame-about { margin: 0.35rem 0 0.2rem; font-size: 0.82rem; color: var(--muted); }
+.frame-sample-label { margin: 0.45rem 0 0; font-size: 0.8rem; color: var(--muted); }
+.dtype-table { width: auto; min-width: 60%; }
+.dtype-table td.dtype { color: var(--fairway-dark); }
+
 /* ---------- Practice mode (js/settings.js) ---------- */
 .practice-badge {
   align-self: center;

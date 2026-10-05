@@ -3,19 +3,19 @@
 
 import { esc } from './dom.js';
 
-const block = (label, body, cls = '') => `
+export const block = (label, body, cls = '') => `
   <div class="py-block ${cls}">
     <div class="py-label">${label}</div>
     ${body}
   </div>`;
 
-const pre = (text, cls = 'py-out') => `<pre class="${cls}">${esc(text)}</pre>`;
+export const pre = (text, cls = 'py-out') => `<pre class="${cls}">${esc(text)}</pre>`;
 
 export function errorBlock(error) {
   return block(`Error · ${esc(error.type)}${error.line ? ` on line ${error.line}` : ''}`, pre(error.traceback, 'py-out py-trace'), 'is-error');
 }
 
-const truncatedNote = '<p class="results-meta">Output was cut off: only the first part of what was printed is shown.</p>';
+export const truncatedNote = '<p class="results-meta">Output was cut off: only the first part of what was printed is shown.</p>';
 
 /** A Run's results. `inputsNote` says which example inputs the code ran with (stdout/value problems). */
 export function renderRun(result, { inputsNote = '' } = {}) {
