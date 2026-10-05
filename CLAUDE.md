@@ -38,6 +38,11 @@ at the top of `css/styles.css`. Lesson examples are highlighted on paper, delibe
   `js/ui/editor.js`.
 - **Python runs in-browser via Pyodide** (`vendor/pyodide/`, version in `VERSION`, about 13 MB), inside a module Web
   Worker. It's loaded lazily: only a page showing a Python problem starts it. Never load it on SQL pages.
+- **pandas runs on the same Pyodide** (engine `'pandas'`): pandas 3.0.2 and numpy 2.4.6, the versions Pyodide 314.0.7
+  bundles. Their wheels (plus python-dateutil, pytz, six; about 7.9 MB) are vendored in `vendor/pyodide/` and load
+  only when a pandas problem opens. pandas 3 means Copy-on-Write (chained assignment like `df['a'][0] = 1` never
+  works, and `inplace=True` on a column doesn't change the frame) and a `str` dtype for text columns: write holes for
+  that, never for pandas 1/2 behavior.
 - **Content is data.** Tournaments and holes live in `js/data/`. Pages never hard-code a tournament or a hole.
 - **Progress lives in `localStorage`** (key `puttedex.progress`, module `js/progress.js`, tournaments and the
   Driving Range alike) with JSON export and
@@ -58,10 +63,12 @@ npm test             # node --test: schedule data, every hole against the real e
 node --test tests/holes.test.mjs                                    # a single test file
 node --test --test-name-pattern="order-limit" "tests/*.test.mjs"    # tests whose name matches
 npm run test:layout  # headless Chrome at 7 widths: fails if any page scrolls horizontally (CHROME=… to override)
+node scripts/build-frames.mjs   # rebuild the pandas CSV datasets (deterministic; tests fail if they're stale)
 ```
 
 ES modules and WASM don't load from `file://`, so always use a local server. There are no npm dependencies; `package.json`
-exists only for the scripts. The tests load the vendored Pyodide in Node directly (about a second). `npm test` runs in
+exists only for the scripts. The tests load the vendored Pyodide in Node directly (about a second; loading pandas adds about 6
+seconds per test file that uses it). `npm test` runs in
 CI; `test:layout` is local only (it needs Chrome).
 
 ## Architecture
@@ -106,8 +113,8 @@ course map) goes to `tournament.html?t=<id>#holes`, and v1's `course.html?hole=<
 - **Workspace engines** (`js/ui/engines/`): the hole view and the range problem view are engine-agnostic. They load
   the engine named by the tournament's `engine` (a range problem may override it with its own `engine`), which
   supplies the editor setup, yardage book, Run, Submit, result rendering, and Copy context data. The interface is
-  documented in `js/ui/engines/index.js`; `sql.js` and `python.js` implement it. Adding a subject means adding an
-  engine module there, not branching in the pages.
+  documented in `js/ui/engines/index.js`; `sql.js`, `python.js`, and `pandas.js` implement it. Adding a subject means
+  adding an engine module there, not branching in the pages.
 - **Python runner** (`js/lib/`): `python-runner.js` (main thread) owns one module worker per page
   (`python-worker.js`), serializes requests, and enforces `PYTHON.timeoutMs` (5 s) by terminating the worker and
   starting a fresh one (the only way to stop busy WebAssembly without cross-origin isolation, which Pages can't
@@ -117,6 +124,15 @@ course map) goes to `tournament.html?t=<id>#holes`, and v1's `course.html?hole=<
   as in a notebook). Output is capped, the last expression's value is shown Jupyter-style, tracebacks keep only the
   learner's own lines, and `input()` explains that data comes from arguments or variables. Settings (timeout,
   output limits, which modules may render HTML such as DataFrames) live in `js/data/python-config.js`.
+- **pandas** (engine `'pandas'`, `js/ui/engines/pandas.js`): the Python runner with pandas loaded and the
+  tournament's CSV dataset registered (runner `addDataset` / `ready(packages, datasets)`; re-registered after a
+  restart). `js/lib/pandas-harness.js` (Python source, run in the harness namespace once pandas loads) reads each CSV
+  once with plain `pd.read_csv` and hands out fresh deep copies to every run and every check case, so learner code
+  can't corrupt the data; it also does Run on DataFrames (the task's function is called on the visible data when the
+  code only defines it), DataFrame/Series display as JSON tables (first 20 rows), the data panel (shape, dtypes,
+  missing counts, 5 sample rows), and pandas error hints. `js/lib/pandas-checker.js` is the DataFrame checker (see
+  "pandas holes"). `js/ui/pandas-results.js` renders tables, diffs, and the data panel. Row counts live in
+  `PYTHON.tableRows`, the always-loaded packages in `PYTHON.pandasPackages` (`js/data/python-config.js`).
 - `js/ui/`: `dom.js` (`esc`: use it for every learner- or data-derived string put into HTML; icons; `crumbs`;
   `scoreMark`), `scorecard.js` (the 18-hole card), `course-map.js` (the 18 hole slots on the tournament page),
   `workspace.js` (editor card, feedback, results panel, and SQL's results table and yardage book),
@@ -146,6 +162,28 @@ Any change to the data changes expected answers, and can make a hole's `mistakes
 inaccurate (for example "every player" when some players have no rounds). After editing it, run `npm test` and
 re-read every task that says "every" or "each".
 
+## The clubhouse-csv dataset (pandas)
+
+`js/data/datasets/clubhouse-csv.js` (`FRAMES`) lists the pandas tournament's tables, CSV files in
+`js/data/datasets/clubhouse-csv/<variant>/<table>.csv`, built by `scripts/build-frames.mjs` (seeded and deterministic;
+edit the script, never the CSVs, and rerun it). Every table is under 5,000 rows. `main` is the visible data; `alt` is a
+hidden variant with the same schema and the same kinds of messiness but different players, values, months, and keys,
+so hardcoded answers fail. `tests/frames-dataset.test.mjs` rebuilds both and checks the messiness is still there.
+
+- `players` (30): `name` and `country` with stray spaces and mixed case (`'kenji sato'`, `'Rafael  Ortiz'`, `' Sco'`);
+  `handicap` and `home_course_id` missing for some (so `home_course_id` is float64); `dues` as text (`'$1,250'`,
+  `'$ 1200'`, `'800.00'`); `joined_on` a date string. Players 29 and 30 are duplicate signups of 9 and 21 (same person
+  after cleaning, later `joined_on`). Players 13–16, 29, 30 have no rounds.
+- `courses` (8): clean; course 7 has no rounds.
+- `rounds` (221, March–August 2026): `played_on` text; `putts` and `weather` missing for some; rounds by player_ids 97
+  and 99, who aren't in `players`. `round_id` is chronological.
+- `scores` (3,240): hole-by-hole cards for most rounds (strokes sum to the round's score); two cards uploaded twice
+  (exact duplicate rows); one card for a round_id not in `rounds`.
+- `legacy_rounds` (48, autumn 2025): wide (`h1` … `h18`), with the old app's names (`id`, `date`, `course`, `player`,
+  `total`).
+
+Changing the data changes expected answers; run `npm test` and re-read every pandas task afterwards.
+
 ## Difficulty and par
 
 Every tournament hole and Driving Range problem declares **`difficulty: 'easy' | 'medium' | 'hard'`**. Par is
@@ -167,8 +205,9 @@ A caddie tip costs one stroke, so taking it on a Par 1 always ends over par.
 ## How to add a tournament
 
 1. Add an entry to `TOURNAMENTS` in `js/data/tournaments.js`, at its place in the learning order. Fill in `id`,
-   `title`, `event`, `blurb`, `description`, `skills`, and `engine` (`'sql'` or `'python'`), plus `dataset` for SQL
-   or `packages` for Python (extra Pyodide packages, usually `[]`), and optionally `prerequisite` (an earlier
+   `title`, `event`, `blurb`, `description`, `skills`, and `engine` (`'sql'`, `'python'`, or `'pandas'`), plus
+   `dataset` for SQL and pandas (a module exporting `SEED` or a `FRAMES` manifest) and `packages` for Python and pandas
+   (extra Pyodide packages, usually `[]` for Python), and optionally `prerequisite` (an earlier
    tournament's id). Set `holeSet: null`. It now appears on the schedule, and its tournament
    page says "coming soon", with all 18 hole slots locked.
    - Nothing is ever locked behind another tournament: a tournament is playable as soon as it has holes.
@@ -255,6 +294,52 @@ Tests (`tests/python-checks.mjs`, for holes and range problems alike) require:
 Lesson `<pre>` examples are highlighted in the hole's language. Write Python examples on different data than the
 task so they teach without giving the answer away.
 
+### pandas holes
+
+See `js/data/holes/pandas.js` for 18 worked examples. Same fields as a Python hole, with a **DataFrame checker**
+(format at the top of `js/lib/python-engine.js`). The workspace adds the tournament's dataset to it at run time:
+
+```js
+checker: {
+  type: 'dataframe',
+  function: 'leaderboard',          // the task states: def leaderboard(rounds, n)
+  frames: ['rounds'],               // tables passed in, in order (named like the dataset's tables)
+  returns: 'DataFrame',             // 'DataFrame' | 'Series' | 'scalar'
+  rowOrder: 'require',              // or 'ignore' with sortBy: ['col', …] (both sorted by those keys first)
+  index: 'ignore',                  // 'ignore' (compare after reset_index(drop=True)) | 'require'
+  columnOrder: 'require',           // or 'ignore'
+  dtypes: 'values',                 // or 'match': int vs float vs text vs datetime must match
+  atol: 0.011,                      // optional float tolerance (defaults rtol 1e-6, atol 1e-9)
+  cases: [
+    { args: '5' },                                          // visible: the main data (+ extra args)
+    { data: 'alt', args: '3', hidden: true, label: '…' },   // the hidden variant
+    { setup: 'rounds = rounds.sample(frac=1, random_state=7)', args: '8', hidden: true, label: 'rows arrive shuffled' },
+  ],
+}
+```
+
+- A case's `setup` is Python that edits the fresh copies before the call: ties, an empty group
+  (`rounds = rounds[rounds['course_id'] != 3]`), an all-null column (`rounds['putts'] = np.nan`), shuffled rows,
+  a non-default index. Changing an input DataFrame always fails (the message names the table and the change), so say
+  "don't modify" in tasks where that's tempting.
+- Feedback: the first real problem (type; missing, extra, or misordered columns, with "it's in your index: add
+  .reset_index()"; shape with counts and a duplicates hint; index not reset or repeated; dtype families; right rows in
+  the wrong order; then the first mismatching rows side by side). Hidden cases show only the kind of mismatch.
+- `tests/pandas-checks.mjs` (holes and range problems) requires: every option spelled out; at least 1 visible and 3
+  labeled hidden cases, one on another data variant, whose answer differs from the visible one; the task states the
+  exact signature (DataFrame parameters first, named like the tables) and the return type; the yardage note has a
+  **"SQL equivalent:"** line; a pro solution of 3+ lines, one chained step per line in parentheses, 4-space indents,
+  80 characters max; no row loops (`for`/`while` statements, `iterrows`, `itertuples`, `apply(axis=1)`) in the
+  solution or alternatives; no `import pandas`/`numpy` (they're preloaded as `pd` and `np`); the solution passes, a
+  blank editor fails, every alternative passes, every mistake fails a hidden case, and some mistake passes the visible
+  data but fails a hidden one.
+- Good mistakes: forgetting `reset_index`, an inner merge where a left one was needed, mean vs sum, mutating the input,
+  a filter that keeps NaN rows, a missing tie-breaker (with a shuffled-rows case), relying on input order, and a
+  hardcoded answer copied from the visible data. Good alternatives: the same answer another idiomatic way (merge vs
+  map, groupby+agg vs pivot_table, melt+pivot_table vs groupby+`.T`).
+- Prototype first and look at the rows: ties, missing values, and pandas 3's `str` dtype all matter. JS template
+  literals drop single backslashes, so write regexes in solutions and lessons as `r'\\s+'` in the source.
+
 ## The Driving Range
 
 Extra, replayable practice problems per tournament, on skills already learned.
@@ -338,6 +423,9 @@ difficulty split, for example) overrides the defaults here.
      `GROUP BY`, `HAVING`, `COUNT DISTINCT`, `JOIN`, `CASE WHEN`, `Dates`, `Percentages`.
    - Joins & Subqueries: `JOIN`, `LEFT JOIN`, `Self-join`, `Subqueries`, `EXISTS`, `CASE WHEN`, `CTE`. Earlier tags
      such as `Dates` may appear too, but don't count toward coverage.
+   - pandas Wrangling: `DataFrames`, `Selecting`, `Filtering`, `Sorting`, `Missing data`, `groupby`, `merge`,
+     `concat`, `Dates`, `Cleaning`, `pivot`, `Window ops`. Only `Dates` is in `TOPICS` so far: add the rest with the
+     first pandas range problems.
    - A tournament not listed here: derive its tags from its holes and `skills`, add any new ones to `TOPICS`, add the
      list to this section, and state it in the report.
 4. **No duplicates.** Before writing anything, read all of the tournament's holes (`js/data/holes/<holeSet>.js`) and
@@ -366,13 +454,23 @@ difficulty split, for example) overrides the defaults here.
      compares return values. Use `noMutation: true` when the task says not to modify the input.
    - `stdout`: the task says exactly what to print; cases' `setup` defines the inputs.
    - `value`: the task names a variable to create; cases' `setup` defines the inputs.
+
+   **pandas** problems (engine `'pandas'`, tournament pandas Wrangling) use the DataFrame checker described under
+   "pandas holes": `type: 'dataframe'`, `function`, `frames` (tables of `clubhouse-csv`), `returns`, and every
+   comparison option (`rowOrder` with `sortBy`, `index`, `columnOrder`, `dtypes`, optional `rtol`/`atol`). Cases are
+   the visible data plus at least 3 labeled hidden ones, at least one on the `alt` variant, with `setup` edits for edge
+   cases (ties, empty groups, all-null columns, shuffled rows). The range content test runs them through
+   `tests/pandas-checks.mjs`. A range problem in another tournament can run on pandas by setting `engine: 'pandas'`.
    Every Python problem needs at least 3 visible and 3 labeled hidden cases, with the hidden ones covering edge cases
    (empty input, one element, duplicates, negative numbers, ties, malformed rows), plus `alternatives` and
    `mistakes` as for holes; `tests/python-checks.mjs` enforces the rules listed under "Python holes". The range
    content test runs Python problems through it. For pandas, NumPy, statistics, and ML, extend the comparison in
    `js/lib/python-harness.js` (`same()`) for DataFrames and arrays first, and add the packages to the tournament's
-   `packages` (their wheels must be vendored next to Pyodide). Tell the user what's needed before writing content
-   if the checker can't grade it yet.
+   `packages` (their wheels must be vendored next to Pyodide, from the Pyodide release matching
+   `vendor/pyodide/VERSION`, with the lockfile's sha256; `tests/vendor.test.mjs` checks every declared package and its
+   dependencies). pandas DataFrames, Series, and scalars are graded by the DataFrame checker already; NumPy arrays,
+   statistics, and ML results still need comparison support. Tell the user what's needed before writing content if
+   the checker can't grade it yet.
 9. **Verify.**
    - Run every pro solution through its checker and confirm it passes (`npm test` does this).
    - For each problem, confirm at least one plausible wrong answer fails. Where `ORDER BY` matters, include a
@@ -411,6 +509,12 @@ Cmd/Ctrl+Shift+C isn't used because browsers reserve it for the developer tools'
   store) and never re-run the query. The shape is documented at the top of `js/context/index.js`. Clipboard
   handling (API → textarea + `execCommand` → manual-copy dialog) is in `js/ui/copy-context.js`.
 
+- **pandas** (`js/context/pandas.js`) copies "The DataFrames" (each table's columns with dtype and missing count, and 3
+  sample rows) and "How it's checked" (the call, the return type, which options are graded, visible and hidden counts),
+  and as the last run: printed output and the returned DataFrame as a Markdown table (first 15 rows), the trimmed
+  error, or per-test feedback (visible: the message and the mismatching rows the page shows; hidden: pass/fail and the
+  kind of mismatch). The full expected result is never copied.
+
 ### Adding a context builder for a new problem type
 
 1. Create `js/context/<engine>.js` exporting `build<Engine>Context(ctx)`. Assemble it from the shared sections in
@@ -432,6 +536,14 @@ and the results panel; `while True: pass` stops after about 5 s with the "ran to
 a syntax error and a runtime error show only your own lines; printing 100,000 lines is cut off with a note; Restart
 Python works; moving to the next hole is instant; and the results panel doesn't scroll sideways at 1440, 1280, and
 390px.
+
+For pandas (after changing `js/ui/engines/pandas.js`, `js/lib/pandas-*.js`, or `js/ui/pandas-results.js`), open a
+pandas hole and also check: the first load says it's loading Python and pandas, then the data panel fills in; Run on
+code that only defines the function shows what it returned on the visible data; a DataFrame result shows 20 rows
+with "showing the first 20 of N" and scrolls inside its own box; a wrong Submit shows the expected-vs-yours rows; and
+after the 5-second timeout, Run works again (pandas and the data reload). `npm run test:layout` covers two pandas
+holes, including a wrong answer with every table open; when running Chrome as root, point `CHROME` at a wrapper that
+adds `--no-sandbox`.
 
 ## Deployment
 
