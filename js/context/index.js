@@ -11,20 +11,24 @@
 //   task            HTML of the task
 //   background      { lesson, note } HTML for tournament holes; null for range problems
 //   code            the editor's current text
-//   lastRun         null (nothing run yet) or
-//                   { kind: 'practice' | 'error' | 'wrong' | 'correct', message, result: { columns, rows } | null }
+//   lastRun         null (nothing run yet) or { kind: 'practice' | 'error' | 'wrong' | 'correct', message, result }
+//                   where result is engine-specific: SQL { columns, rows }; Python a Run's { stdout, stderr, value,
+//                   error }, a Submit's { tests, summary }, or { timedOut: true }; or null
 //   progress        { attempts, strokes, par, hintsUsed, solved, best? }
 //   solution        the pro's solution, or null. Only pass it when the learner has it unlocked AND asked for it.
 //   data            engine-specific inputs, e.g. { SQL, seed, referenceSql } for SQL (the reference SQL is used to
-//                   pick relevant tables; its text is never copied unless `solution` is set)
+//                   pick relevant tables; its text is never copied unless `solution` is set), and
+//                   { checker, packages } for Python
 
 import {
   framingSection, locationSection, problemSection, codeSection, lastRunSection, solutionSection, joinSections,
 } from './sections.js';
 import { buildSqlContext } from './sql.js';
+import { buildPythonContext } from './python.js';
 
 export const CONTEXT_BUILDERS = {
   sql: buildSqlContext,
+  python: buildPythonContext,
 };
 
 export function buildContext(ctx) {

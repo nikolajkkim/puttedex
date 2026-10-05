@@ -141,11 +141,89 @@ test('progress: attempts, strokes versus par, hints', () => {
 });
 
 test('a problem type without a builder falls back to title, task, code, and feedback', () => {
-  const ctx = { ...rangeCtx(rangeProblems[0]), engine: 'python', code: 'print(1)', data: {},
+  const ctx = { ...rangeCtx(rangeProblems[0]), engine: 'r', code: 'print(1)', data: {},
     lastRun: { kind: 'wrong', message: 'Expected 3, got 1', result: null } };
   const md = buildContext(ctx);
   assert.equal(md, buildFallbackContext(ctx));
   assert.deepEqual(headings(md), ['Where I am', 'The problem', 'My current code', 'My last run']);
-  assert.match(md, /```python\nprint\(1\)\n```/);
+  assert.match(md, /```r\nprint\(1\)\n```/);
   assert.match(md, /Feedback I was shown: Expected 3, got 1/);
+});
+
+// ---------- Python ----------
+
+const pyChecker = {
+  type: 'function',
+  function: 'best_round',
+  noMutation: true,
+  cases: [{ args: '[72, 68]' }, { args: '[70]' }, { args: '[71, 71]' },
+    { args: '[]', hidden: true, label: 'empty' }, { args: '[-1]', hidden: true, label: 'negative' }, { args: '[5, 5]', hidden: true, label: 'dupes' }],
+};
+const pyCtx = (extra = {}) => ({
+  engine: 'python',
+  location: { kind: 'hole', tournament: 'Python Fundamentals', hole: 4, holes: 18 },
+  title: 'Best round',
+  par: 1,
+  tags: [],
+  task: '<p>Write <code>def best_round(scores)</code>. Don\'t modify the list.</p>',
+  background: { lesson: '<p>Use <code>min</code>.</p><pre>min([3, 1])</pre>', note: 'Scores are integers.' },
+  code: 'def best_round(scores):\n    return min(scores)',
+  lastRun: null,
+  progress: { attempts: 1, strokes: 1, par: 1, hintsUsed: 0, solved: false },
+  solution: null,
+  data: { checker: pyChecker, packages: [] },
+  ...extra,
+});
+
+test('Python: sections in order, python fences, how it is checked', () => {
+  const md = buildContext(pyCtx());
+  assert.deepEqual(headings(md), ['Where I am', 'The problem', 'Background', 'How it\'s checked', 'My current code', 'My last run', 'My progress on this problem']);
+  assert.match(md, /```python\ndef best_round\(scores\):\n    return min\(scores\)\n```/);
+  assert.match(md, /```python\nmin\(\[3, 1\]\)\n```/);
+  assert.match(md, /must define the function `best_round`/);
+  assert.match(md, /must not modify its input/);
+  assert.match(md, /3 example tests and 3 hidden tests/);
+});
+
+test('Python Run: printed output, the last value, and the trimmed error', () => {
+  const md = buildContext(pyCtx({
+    lastRun: {
+      kind: 'error',
+      message: 'Traceback (most recent call last):\n  Line 2, in best_round()\n    return min(scores)\nValueError: min() iterable argument is empty',
+      result: { stdout: 'checking\n', stderr: '', truncated: false, value: null, error: { type: 'ValueError' } },
+    },
+  }));
+  assert.match(md, /\*\*Status:\*\* Error/);
+  assert.match(md, /Line 2, in best_round\(\)\n {4}return min\(scores\)\nValueError/);
+  assert.match(md, /Printed output:\n\n```\nchecking\n```/);
+  const practice = buildContext(pyCtx({ lastRun: { kind: 'practice', message: '', result: { stdout: '', stderr: '', truncated: false, value: { repr: '[1, 2]', type: 'list' }, error: null } } }));
+  assert.match(practice, /Printed output: \(nothing\)/);
+  assert.match(practice, /Value of the last line \(list\):\n\n```\n\[1, 2\]\n```/);
+});
+
+test('Python Submit: examples in full, hidden tests pass/fail with only the first failing input, never their values', async () => {
+  const { getPython } = await import('./helpers.mjs');
+  const { summarize } = await import('../js/lib/python-engine.js');
+  const py = await getPython();
+  py.prepare('ctx-best', 'def best_round(scores):\n    return min(scores) if scores else None', pyChecker);
+  const tests = py.check('ctx-best', 'def best_round(scores):\n    return min(scores) if len(scores) > 1 else 0', pyChecker);
+  const md = buildContext(pyCtx({ lastRun: { kind: 'wrong', message: 'Stroke 1: not in the hole yet.', result: { tests, summary: summarize(tests) } } }));
+  assert.match(md, /Tests: 3 of 6 passed \(2 of 3 examples, 1 of 3 hidden\)/);
+  assert.match(md, /- Example 2: FAIL\n {2}- Input: `best_round\(\[70\]\)`\n {2}- Expected: `70`\n {2}- Got: `0`/);
+  assert.match(md, /- Hidden test 1: FAIL on input `best_round\(\[\]\)`/);
+  assert.match(md, /- Hidden test 2: FAIL\n- Hidden test 3: PASS/);
+  assert.doesNotMatch(md, /best_round\(\[-1\]\)/, 'only the first failing hidden input is shown');
+  assert.doesNotMatch(md, /if scores else None/, 'no solution unless passed in');
+});
+
+test('Python: a timeout says so; the solution appears only when passed in', () => {
+  assert.match(buildContext(pyCtx({ lastRun: { kind: 'error', message: 'Your code ran too long', result: { timedOut: true } } })), /stopped because it took too long/);
+  assert.doesNotMatch(buildContext(pyCtx()), /Reference solution/);
+  assert.match(buildContext(pyCtx({ solution: 'def best_round(s):\n    return min(s)' })), /## Reference solution\n\n```python\ndef best_round/);
+});
+
+test('Python: long printed output is clipped', () => {
+  const md = buildContext(pyCtx({ lastRun: { kind: 'practice', message: '', result: { stdout: 'x'.repeat(5000), stderr: '', truncated: true, value: null, error: null } } }));
+  assert.match(md, new RegExp(`… \\(${5000 - CONTEXT_LIMITS.outputChars} more characters not shown\\)`));
+  assert.match(md, /cut off by the runner/);
 });

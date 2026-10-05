@@ -9,4 +9,5 @@ export const CONTEXT_LIMITS = {
   sampleRows: 3,   // sample rows per table in the schema section
   resultRows: 15,  // rows of my last result shown as a table
   cellChars: 40,   // longer cell values are cut to this many characters
+  outputChars: 2000, // characters of printed Python output copied per run
 };

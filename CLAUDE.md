@@ -378,14 +378,19 @@ with the shortcut Alt/Option+Shift+C. It copies a Markdown summary for asking so
 Cmd/Ctrl+Shift+C isn't used because browsers reserve it for the developer tools' element inspector.
 
 - **The framing line** at the top, and the size limits (3 sample rows per table, 15 result rows, 40-character
-  cells), live in **`js/data/context-config.js`**. Edit them there.
+  cells, 2,000 characters of printed Python output), live in **`js/data/context-config.js`**. Edit them there.
 - **What's copied**, in order: framing, where I am, the problem, Background (holes only: lesson and yardage note),
   schema (only the tables the reference query or my code mention, with 3 sample rows), my current code, my last
   run (status, the exact error or feedback shown, columns, row count, first 15 rows), my progress, and the reference
   solution, only if the learner ticks "Include pro solution". That toggle only appears once the solution is
   unlocked (hole: solved; range: solved or 3 misses).
-- **Never** copy the expected output, and never copy the solution without the toggle. `tests/context.test.mjs`
-  checks this.
+- **Python** (`js/context/python.js`) copies, instead of the schema, "How it's checked" (the function to define, or
+  what's printed or which variable; no-mutation rule; how many example and hidden tests; example 1's inputs), and
+  as the last run: printed output, the last line's value, and the trimmed traceback (Run), or the per-test results
+  (Submit). Examples are copied in full (input, expected, got) since the page shows them; hidden tests only as
+  pass/fail, plus the input of the first failing one.
+- **Never** copy the expected output of SQL or of a hidden Python test, and never copy the solution without the
+  toggle. `tests/context.test.mjs` checks this.
 - The pages build a ProblemContext from existing state (editor text, `lastRun` set by Run/Submit, the progress
   store) and never re-run the query. The shape is documented at the top of `js/context/index.js`. Clipboard
   handling (API → textarea + `execCommand` → manual-copy dialog) is in `js/ui/copy-context.js`.
