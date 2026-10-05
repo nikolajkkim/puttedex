@@ -103,7 +103,7 @@ export const TOURNAMENTS = [
     dataset: 'clubhouse-csv',
     packages: ['numpy', 'pandas'],
     prerequisite: 'python-fundamentals',
-    holeSet: null,
+    holeSet: 'pandas',
   },
   {
     id: 'probability-stats',

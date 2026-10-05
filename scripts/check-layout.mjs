@@ -18,7 +18,8 @@ const WIDTHS = [1440, 1280, 1024, 860, 768, 390, 320];
 const WIDE_QUERY = 'SELECT * FROM rounds r JOIN players p ON p.player_id = r.player_id JOIN courses c ON c.course_id = r.course_id';
 const PAGES = ['index.html', 'range.html', 'tournament.html?t=sql-basics', 'tournament.html?t=sql-joins', 'tournament.html?t=sql-windows', 'tournament.html?t=python-fundamentals', 'tournament.html?t=pandas',
   'hole.html?t=sql-basics&h=10', 'hole.html?t=sql-windows&h=15',
-  'hole.html?t=python-fundamentals&h=18'];
+  'hole.html?t=python-fundamentals&h=18', 'hole.html?t=pandas&h=11', 'hole.html?t=pandas&h=16'];
+const WIDE_FRAME = "print('fore! ' * 60)\npd.DataFrame({f'column_{i}': ['a long cell value ' * 2] * 30 for i in range(25)})";
 
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css',
   '.wasm': 'application/wasm', '.json': 'application/json', '.zip': 'application/zip' };
@@ -98,11 +99,26 @@ for (const width of WIDTHS) {
         failures.push(`${width}px ${path}: the runtime didn't load`);
         continue;
       }
-      const wide = path.includes('t=python') ? `print(${JSON.stringify(WIDE_QUERY)} * 3)\n${JSON.stringify(WIDE_QUERY)}` : WIDE_QUERY;
+      const wide = path.includes('t=pandas') ? WIDE_FRAME
+        : path.includes('t=python') ? `print(${JSON.stringify(WIDE_QUERY)} * 3)\n${JSON.stringify(WIDE_QUERY)}` : WIDE_QUERY;
       await evaluate(`(() => { const cm = document.querySelector('.CodeMirror').CodeMirror; cm.setValue(${JSON.stringify(wide)}); document.querySelector('#run-btn').click(); })()`);
       await sleep(150);
       await evaluate(settled);
       await measure(`${width}px ${path} after running a wide query`);
+      if (path.includes('t=pandas')) {
+        // A wrong answer: the failing test's message, mismatching rows, and expected/yours tables (all opened).
+        await evaluate(`(async () => {
+          const q = new URLSearchParams(location.search);
+          const { tournamentById, loadTournament } = await import('./js/tournaments.js');
+          const t = await loadTournament(tournamentById(q.get('t')));
+          document.querySelector('.CodeMirror').CodeMirror.setValue(t.holes[Number(q.get('h')) - 1].mistakes[0]);
+          document.querySelector('#submit-btn').click();
+        })()`);
+        await sleep(150);
+        await evaluate(settled);
+        await evaluate(`document.querySelectorAll('#results details, .yardage details').forEach((d) => { d.open = true; })`);
+        await measure(`${width}px ${path} after a wrong answer (diff and tables open)`);
+      }
       // Submit this hole's own pro line, then open it in the feedback.
       await evaluate(`(async () => {
         const q = new URLSearchParams(location.search);
