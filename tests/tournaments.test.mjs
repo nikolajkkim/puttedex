@@ -14,7 +14,7 @@ test('every tournament has the fields the pages render', () => {
     for (const field of ['title', 'event', 'blurb', 'description', 'engine']) assert.ok(t[field], `${t.id}.${field}`);
     assert.ok(Array.isArray(t.skills) && t.skills.length > 0, `${t.id}.skills`);
     assert.ok(t.holeSet === null || typeof t.holeSet === 'string', `${t.id}.holeSet`);
-    if (t.engine === 'sql' && isOpen(t)) assert.ok(t.dataset, `${t.id} needs a dataset`);
+    if (['sql', 'pandas'].includes(t.engine) && isOpen(t)) assert.ok(t.dataset, `${t.id} needs a dataset`);
   }
 });
 
@@ -40,5 +40,11 @@ for (const meta of TOURNAMENTS) {
     for (const id of ids) assert.match(id, /^[a-z0-9-]+$/);
     assert.equal(t.par, t.holes.reduce((s, h) => s + h.par, 0));
     if (isOpen(meta)) assert.ok(t.seed || meta.engine !== 'sql', 'SQL tournaments load a seed');
+    if (isOpen(meta) && meta.engine === 'pandas') assert.ok(t.frames?.tables, 'pandas tournaments load a FRAMES manifest');
   });
 }
+
+test('every open tournament has a runner the problem views can host', async () => {
+  const { hasEngineModule } = await import('./engines.mjs');
+  for (const t of TOURNAMENTS.filter(isOpen)) assert.ok(hasEngineModule(t.engine), `${t.id}: js/ui/engines/${t.engine}.js`);
+});
