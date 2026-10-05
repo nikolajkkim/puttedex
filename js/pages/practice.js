@@ -1,13 +1,13 @@
-// Driving Range problem view: a leaner hole view. No lesson and no starter code; an optional caddie tip; the pro's
-// line unlocks after a solve or enough failed attempts; prev/next follow the range home's current filters.
+// Driving Range problem view: a leaner hole view, for any engine (SQL or Python, see js/ui/engines/). No lesson and
+// no starter code; an optional caddie tip; the pro's line unlocks after a solve or enough failed attempts; prev/next
+// follow the range home's current filters.
 
 import * as range from '../range.js';
 import * as progress from '../progress.js';
-import { loadSqlJs, runQuery, describeSchema } from '../lib/sql-runner.js';
-import { compareResults } from '../lib/compare.js';
 import { $, esc, BRAND_SVG, crumbs } from '../ui/dom.js';
-import { createSqlEditor, highlightSql } from '../ui/sql-editor.js';
-import { MOD, editorCardHTML, resultsHTML, yardageBookHTML, showFeedback, execute } from '../ui/workspace.js';
+import { createEditor, highlightCode } from '../ui/editor.js';
+import { editorCardHTML, resultsHTML, showFeedback } from '../ui/workspace.js';
+import { createWorkspace, hasEngine } from '../ui/engines/index.js';
 import { mountCopyContext } from '../ui/copy-context.js';
 
 $('#brand').insertAdjacentHTML('afterbegin', BRAND_SVG);
@@ -47,10 +47,17 @@ async function start() {
     return;
   }
 
-  const SQL = await loadSqlJs(window.initSqlJs, (file) => `vendor/sql.js/${file}`);
-  const seed = problem.tournament.seed;
-  const schema = describeSchema(SQL, seed);
-  const expected = runQuery(SQL, seed, problem.solution);
+  // A problem runs on its own engine if it names one, otherwise on its tournament's (see js/ui/engines/).
+  const engineName = problem.engine ?? problem.tournament.engine;
+  if (!hasEngine(engineName)) {
+    fatal(problem.title, 'This problem needs a runner this site doesn\'t have yet.');
+    return;
+  }
+  const engine = await createWorkspace(engineName, {
+    seed: problem.tournament.seed,
+    packages: problem.tournament.packages ?? [],
+  });
+  await engine.prepare();
 
   // Prev/next within the current filtered list. The current problem always stays in it, so solving a problem
   // while filtering by "Unsolved" doesn't lose your place.
@@ -61,6 +68,7 @@ async function start() {
   document.title = `${problem.title} · Driving Range · Puttedex`;
   let editor = null;
   let lastRun = null; // the last Run/Submit on this page (for "Copy context")
+  let busy = false; // a Run or Submit is in progress (Python runs asynchronously)
   let copyControls = null;
 
   const rec = () => progress.getRangeRecord(key);
@@ -104,7 +112,7 @@ async function start() {
     const box = $('#solution-box');
     if (range.solutionUnlocked(r)) {
       box.innerHTML = `<details><summary>See the pro's line</summary><pre class="pro-line"></pre></details>`;
-      highlightSql($('#solution-box .pro-line'), problem.solution);
+      highlightCode($('#solution-box .pro-line'), problem.solution, { language: engine.language });
     } else {
       const left = range.failuresUntilSolution(r);
       box.innerHTML = `<p class="solution-locked">🔒 The pro's line unlocks when you solve this, or after ${left} more
@@ -204,18 +212,19 @@ async function start() {
           </div>
           <div class="hint-box" id="hint-box"></div>
           <div class="solution-box" id="solution-box"></div>
-          ${yardageBookHTML(schema)}
+          ${engine.yardageHTML(problem, problem.yardage ?? '')}
           ${pager}
         </article>
 
         <div class="workspace">
-          ${editorCardHTML()}
-          ${resultsHTML()}
+          ${editorCardHTML(engine)}
+          ${resultsHTML(engine.emptyResultsHTML(problem))}
         </div>
       </div>`;
 
     renderRoundBanner();
     mountEditor();
+    engine.mount(app);
     copyControls = mountCopyContext({
       solutionUnlocked: () => range.solutionUnlocked(rec()),
       getContext: ({ includeSolution }) => {
@@ -241,7 +250,7 @@ async function start() {
             best: r.bestStrokes,
           },
           solution: includeSolution ? problem.solution : null,
-          data: { SQL, seed, referenceSql: problem.solution },
+          data: engine.contextData(problem),
         };
       },
     });
@@ -257,10 +266,11 @@ async function start() {
 
   function mountEditor() {
     let saveTimer;
-    editor = createSqlEditor($('#editor'), {
+    editor = createEditor($('#editor'), {
+      language: engine.language,
       value: rec().code ?? '',
-      placeholder: `-- Write your SQL here. ${MOD}+Enter runs it.`,
-      label: `SQL editor for ${problem.title}`,
+      placeholder: engine.placeholder,
+      label: `Code editor for ${problem.title}`,
       run,
       submit,
       onChange: (value) => {
@@ -273,19 +283,34 @@ async function start() {
     $('#clear-btn').addEventListener('click', () => { editor.setValue(''); editor.focus(); });
   }
 
-  function run() {
-    const { result, error } = execute(SQL, seed, editor.getValue());
-    lastRun = error ? { kind: 'error', message: error, result: null } : { kind: 'practice', message: '', result };
-    if (error) showFeedback('error', 'Shanked it. SQL error', `<p><code>${esc(error)}</code></p>`);
-    else showFeedback('info', 'Practice swing', '<p>That one didn\'t count. Submit when you\'re ready to take the shot.</p>');
+  /** Run or Submit, one at a time: Python answers asynchronously, and a second click mustn't overlap. */
+  async function exclusive(action) {
+    if (busy) return;
+    busy = true;
+    const buttons = [$('#run-btn'), $('#submit-btn')];
+    buttons.forEach((b) => { b.disabled = true; });
+    try {
+      await action();
+    } finally {
+      busy = false;
+      buttons.forEach((b) => { b.disabled = false; });
+    }
   }
 
-  function submit() {
+  const run = () => exclusive(async () => {
+    const out = await engine.run(editor.getValue(), problem);
+    lastRun = out.lastRun;
+    showFeedback(out.feedback.kind, out.feedback.title, out.feedback.body);
+  });
+
+  const submit = () => exclusive(async () => {
     const code = editor.getValue();
-    const { result, error } = execute(SQL, seed, code);
-    const verdict = error
-      ? { ok: false, message: `SQL error: ${error}` }
-      : compareResults(result, expected, { orderMatters: problem.orderMatters });
+    const verdict = await engine.submit(code, problem);
+    if (!verdict.graded) {
+      showFeedback('error', 'Rain delay. Nothing was checked', `<p>${esc(verdict.message)} No stroke was counted.</p>`);
+      return;
+    }
+    const error = verdict.error;
     const wasUnlocked = range.solutionUnlocked(rec());
     const { rec: r, flagged } = range.recordSubmit(problem, verdict.ok, code);
     const roundDone = roundStroke({ solved: verdict.ok });
@@ -307,7 +332,7 @@ async function start() {
               : `<a class="btn btn-primary btn-small" href="${range.rangeUrls.home(filters)}">Back to the range →</a>`}`);
       renderHint();
       renderSolution();
-      lastRun = { kind: 'correct', message: `${name}${good ? '!' : '.'} Solved in ${strokes}.`, result };
+      lastRun = { ...verdict.lastRun, kind: 'correct', message: `${name}${good ? '!' : '.'} Solved in ${strokes}.` };
     } else {
       const left = range.failuresUntilSolution(r);
       const unlockedNow = !wasUnlocked && range.solutionUnlocked(r);
@@ -317,11 +342,11 @@ async function start() {
           : !range.solutionUnlocked(r) ? `<p class="muted">${left} more miss${left === 1 ? '' : 'es'} unlocks the pro's line.</p>` : ''}`);
       if (unlockedNow) renderSolution();
       lastRun = error
-        ? { kind: 'error', message: error, result: null }
-        : { kind: 'wrong', message: `Stroke ${r.playStrokes}: not in the hole yet. ${verdict.message}`, result };
+        ? verdict.lastRun
+        : { ...verdict.lastRun, message: `Stroke ${r.playStrokes}: not in the hole yet. ${verdict.message}` };
     }
     copyControls.refresh();
-  }
+  });
 
   render();
   window.addEventListener('pagehide', () => { if (editor) saveDraft(editor.getValue()); });

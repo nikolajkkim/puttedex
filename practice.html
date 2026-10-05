@@ -12,9 +12,11 @@
   <link rel="stylesheet" href="css/styles.css">
   <!-- Defines the global initSqlJs; the .wasm is fetched from the same folder. -->
   <script src="vendor/sql.js/sql-wasm.js"></script>
-  <!-- CodeMirror 5 (global CodeMirror): editor with line numbers, SQL highlighting, and indentation. -->
+  <!-- CodeMirror 5 (global CodeMirror): editor with line numbers, SQL and Python highlighting, and indentation.
+       Pyodide (Python) is not loaded here: js/lib/python-runner.js starts it in a worker only for Python problems. -->
   <script src="vendor/codemirror/codemirror.js"></script>
   <script src="vendor/codemirror/sql.js"></script>
+  <script src="vendor/codemirror/python.js"></script>
   <script src="vendor/codemirror/placeholder.js"></script>
   <script src="vendor/codemirror/matchbrackets.js"></script>
   <script src="vendor/codemirror/closebrackets.js"></script>

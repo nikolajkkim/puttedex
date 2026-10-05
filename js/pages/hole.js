@@ -1,10 +1,9 @@
 import { tournamentById, loadTournament, isOpen, urls, HOLES_PER_TOURNAMENT } from '../tournaments.js';
 import * as progress from '../progress.js';
-import { loadSqlJs, runQuery, describeSchema } from '../lib/sql-runner.js';
-import { compareResults } from '../lib/compare.js';
 import { $, esc, BRAND_SVG, crumbs, scoreMark } from '../ui/dom.js';
-import { createSqlEditor, highlightSql } from '../ui/sql-editor.js';
-import { MOD, editorCardHTML, resultsHTML, yardageBookHTML, showFeedback, execute } from '../ui/workspace.js';
+import { createEditor, highlightCode } from '../ui/editor.js';
+import { editorCardHTML, resultsHTML, showFeedback } from '../ui/workspace.js';
+import { createWorkspace, hasEngine } from '../ui/engines/index.js';
 import { mountCopyContext } from '../ui/copy-context.js';
 
 $('#brand').insertAdjacentHTML('afterbegin', BRAND_SVG);
@@ -25,6 +24,8 @@ if (!meta) {
   fatal('Out of bounds', "That tournament isn't on the schedule.");
 } else if (!isOpen(meta)) {
   fatal(meta.title, 'This tournament is still being built. Check back soon.', urls.tournament(meta.id), 'Tournament details');
+} else if (!hasEngine(meta.engine)) {
+  fatal(meta.title, 'These holes need a runner this site doesn\'t have yet.', urls.tournament(meta.id), 'Tournament details');
 } else {
   start().catch((err) => {
     console.error(err);
@@ -33,16 +34,10 @@ if (!meta) {
 }
 
 async function start() {
-  const [t, SQL] = await Promise.all([
-    loadTournament(meta),
-    loadSqlJs(window.initSqlJs, (file) => `vendor/sql.js/${file}`),
-  ]);
-  const schema = describeSchema(SQL, t.seed);
-  const expectedCache = new Map();
-  const expectedFor = (hole) => {
-    if (!expectedCache.has(hole.id)) expectedCache.set(hole.id, runQuery(SQL, t.seed, hole.solution));
-    return expectedCache.get(hole.id);
-  };
+  const t = await loadTournament(meta);
+  const engine = await createWorkspace(t.engine, { seed: t.seed, packages: t.packages ?? [] });
+  await engine.prepare();
+  const highlight = (el, text, theme) => highlightCode(el, text, { language: engine.language, theme });
 
   const indexFromUrl = () => {
     const n = parseInt(new URLSearchParams(location.search).get('h'), 10);
@@ -52,6 +47,7 @@ async function start() {
   let index = indexFromUrl();
   let editor = null; // the CodeMirror instance for the current hole
   let lastRun = null; // the last Run/Submit on this hole (for "Copy context"); reset when the hole changes
+  let busy = false; // a Run or Submit is in progress (Python runs asynchronously)
   let copyControls = null;
 
   // ---------- Rendering ----------
@@ -105,7 +101,7 @@ async function start() {
             <p>${hole.task}</p>
           </div>
           <div class="hint-box" id="hint-box"></div>
-          ${yardageBookHTML(schema, hole.yardage)}
+          ${engine.yardageHTML(hole, hole.yardage)}
           <div class="pager">
             ${index > 0 ? `<a class="btn btn-small" href="${urls.hole(t.id, index)}" data-hole="${index - 1}">← Hole ${index}</a>` : '<span></span>'}
             ${index < t.holes.length - 1
@@ -115,15 +111,16 @@ async function start() {
         </article>
 
         <div class="workspace">
-          ${editorCardHTML()}
-          ${resultsHTML()}
+          ${editorCardHTML(engine)}
+          ${resultsHTML(engine.emptyResultsHTML(hole))}
         </div>
       </div>`;
 
     // Lesson examples are read-only: highlight them on paper so they never look like the editor.
-    app.querySelectorAll('.lesson pre').forEach((pre) => highlightSql(pre, pre.textContent, 'paper'));
+    app.querySelectorAll('.lesson pre:not(.yardage-code)').forEach((pre) => highlight(pre, pre.textContent, 'paper'));
     lastRun = null;
     mountEditor(hole, rec.code ?? '');
+    engine.mount(app);
     copyControls = mountCopyContext({
       solutionUnlocked: () => progress.getHole(t.id, hole.id).solved, // the pro's line shows once holed
       getContext: ({ includeSolution }) => {
@@ -141,7 +138,7 @@ async function start() {
           lastRun,
           progress: { attempts: r.strokes - hints, strokes: r.strokes, par: hole.par, hintsUsed: hints, solved: r.solved },
           solution: includeSolution ? hole.solution : null,
-          data: { SQL, seed: t.seed, referenceSql: hole.solution },
+          data: engine.contextData(hole),
         };
       },
     });
@@ -182,7 +179,7 @@ async function start() {
       ? `${name}${underOrPar ? '!' : '.'} Holed out in ${rec.strokes}.`
       : `Holed out: ${name.toLowerCase()} (${rec.strokes} on a par ${hole.par})`;
     const cheer = !justNow ? ''
-      : underOrPar ? '<p>Clean strike. That\'s interview-ready SQL.</p>'
+      : underOrPar ? `<p>Clean strike. That's interview-ready ${engine.language === 'sql' ? 'SQL' : 'code'}.</p>`
         : '<p>In the hole. Compare your query with the pro\'s line below. There\'s often a tidier way.</p>';
     const next = round.complete
       ? `<a class="btn btn-flag btn-small" href="${urls.tournament(t.id)}">🏆 Every open hole played. See your scorecard</a>`
@@ -193,25 +190,42 @@ async function start() {
       ${cheer}
       <details><summary>See the pro's line (reference solution)</summary><pre class="pro-line"></pre></details>
       ${next}`);
-    highlightSql($('#feedback .pro-line'), hole.solution);
+    highlight($('#feedback .pro-line'), hole.solution);
   }
 
   // ---------- Actions ----------
 
-  function run() {
-    const { result, error } = execute(SQL, t.seed, editor.getValue());
-    lastRun = error ? { kind: 'error', message: error, result: null } : { kind: 'practice', message: '', result };
-    if (error) showFeedback('error', 'Shanked it. SQL error', `<p><code>${esc(error)}</code></p>`);
-    else showFeedback('info', 'Practice swing', '<p>That one didn\'t count. Submit when you\'re ready to take the shot.</p>');
+  /** Run or Submit, one at a time: Python answers asynchronously, and a second click mustn't overlap. */
+  async function exclusive(action) {
+    if (busy) return;
+    busy = true;
+    const buttons = [$('#run-btn'), $('#submit-btn')];
+    buttons.forEach((b) => { b.disabled = true; });
+    try {
+      await action();
+    } finally {
+      busy = false;
+      buttons.forEach((b) => { if (b.isConnected) b.disabled = false; });
+    }
   }
 
-  function submit() {
+  const run = () => exclusive(async () => {
+    const hole = t.holes[index];
+    const out = await engine.run(editor.getValue(), hole);
+    if (hole !== t.holes[index]) return; // moved to another hole meanwhile
+    lastRun = out.lastRun;
+    showFeedback(out.feedback.kind, out.feedback.title, out.feedback.body);
+  });
+
+  const submit = () => exclusive(async () => {
     const hole = t.holes[index];
     const code = editor.getValue();
-    const { result, error } = execute(SQL, t.seed, code);
-    const verdict = error
-      ? { ok: false, message: `SQL error: ${error}` }
-      : compareResults(result, expectedFor(hole), { orderMatters: hole.orderMatters });
+    const verdict = await engine.submit(code, hole);
+    if (hole !== t.holes[index]) return;
+    if (!verdict.graded) {
+      showFeedback('error', 'Rain delay. Nothing was checked', `<p>${esc(verdict.message)} No stroke was counted.</p>`);
+      return;
+    }
 
     const wasSolved = progress.getHole(t.id, hole.id).solved;
     const rec = progress.recordStroke(t.id, hole.id, verdict.ok, code);
@@ -219,7 +233,7 @@ async function start() {
 
     if (verdict.ok) {
       showSolved(hole, rec, !wasSolved);
-      lastRun = { kind: 'correct', message: $('#feedback .feedback strong').textContent, result };
+      lastRun = { ...verdict.lastRun, kind: 'correct', message: $('#feedback .feedback strong').textContent };
       copyControls.refresh();
       if (!wasSolved) {
         // Refresh the sidebar marks without losing the editor.
@@ -228,19 +242,18 @@ async function start() {
       }
     } else {
       const lead = wasSolved ? 'Not quite. (This hole is already holed, so no stroke was added.)' : `Stroke ${rec.strokes}: not in the hole yet.`;
-      showFeedback(error ? 'error' : 'miss', lead, `<p>${esc(verdict.message)}</p>`);
-      lastRun = error
-        ? { kind: 'error', message: error, result: null }
-        : { kind: 'wrong', message: `${lead} ${verdict.message}`, result };
+      showFeedback(verdict.error ? 'error' : 'miss', lead, `<p>${esc(verdict.message)}</p>`);
+      lastRun = verdict.error ? verdict.lastRun : { ...verdict.lastRun, message: `${lead} ${verdict.message}` };
     }
-  }
+  });
 
   function mountEditor(hole, code) {
     let saveTimer;
-    editor = createSqlEditor($('#editor'), {
+    editor = createEditor($('#editor'), {
+      language: engine.language,
       value: code,
-      placeholder: `-- Write your SQL here. ${MOD}+Enter runs it.`,
-      label: `SQL editor for hole ${index + 1}`,
+      placeholder: engine.placeholder,
+      label: `Code editor for hole ${index + 1}`,
       run,
       submit,
       onChange: (value) => {
@@ -256,7 +269,7 @@ async function start() {
     });
   }
 
-  // ---------- Navigation (in-page, so the SQL engine stays warm) ----------
+  // ---------- Navigation (in-page, so the SQL engine or Python interpreter stays warm) ----------
 
   const saveCurrentDraft = () => {
     if (editor) progress.saveDraft(t.id, t.holes[index].id, editor.getValue());
