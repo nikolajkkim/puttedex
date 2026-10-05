@@ -22,7 +22,8 @@ const cache = new Map();
 
 /**
  * Resolve a tournament's holes and dataset.
- * Returns { ...meta, number, holes, seed, par } where holes are in play order, each with `par` computed from its
+ * Returns { ...meta, number, holes, seed, frames, par } where seed is a SQL dataset's SEED and frames a pandas
+ * dataset's FRAMES manifest (each null when the dataset is the other kind), and holes are in play order, each with `par` computed from its
  * `difficulty` (js/data/par-config.js), and the tournament's par sums them.
  * A tournament without a holeSet resolves with no holes.
  */
@@ -42,6 +43,7 @@ export function loadTournament(t) {
         number: tournamentNumber(t),
         holes,
         seed: datasetModule?.SEED ?? null,
+        frames: datasetModule?.FRAMES ?? null,
         par: holes.reduce((sum, h) => sum + h.par, 0),
       };
     })());

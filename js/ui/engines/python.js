@@ -10,7 +10,11 @@ import { renderRun, renderCheck, renderTimeout, summaryLine, firstFailureText } 
 
 const FIRST_LOAD_NOTE = 'Loading Python for the first time on this page (about 13 MB, cached by your browser after this).';
 
-export function createWorkspace({ packages: tournamentPackages = [] } = {}) {
+/**
+ * Options: packages (the tournament's extra Pyodide packages), datasets (names registered with the runner's
+ * addDataset, loaded with the packages; used by the pandas engine), firstLoadNote (shown while loading).
+ */
+export function createWorkspace({ packages: tournamentPackages = [], datasets = [], firstLoadNote = FIRST_LOAD_NOTE } = {}) {
   const runner = getPythonRunner();
   const keys = new Map(); // reference solution → key for the runner's cache of expected values
   const keyFor = (item) => {
@@ -24,7 +28,8 @@ export function createWorkspace({ packages: tournamentPackages = [] } = {}) {
   function statusText(s) {
     const py = s.version ? `Python ${s.version.split('.').slice(0, 2).join('.')}` : 'Python';
     switch (s.state) {
-      case 'loading': return s.packages ? `${py} · loading ${s.packages.join(', ')}…` : `${py} · loading…`;
+      case 'loading': return s.packages ? `${py} · loading ${s.packages.join(', ')}…`
+        : s.data ? `${py} · loading the data…` : `${py} · loading…`;
       case 'restarting': return `${py} · restarting…`;
       case 'busy': return `${py} · running…`;
       case 'failed': return `${py} · failed to load`;
@@ -43,7 +48,7 @@ export function createWorkspace({ packages: tournamentPackages = [] } = {}) {
     }
     const idle = $('#py-idle-status');
     if (idle) {
-      idle.textContent = s.state === 'loading' && s.firstLoad ? FIRST_LOAD_NOTE
+      idle.textContent = s.state === 'loading' && (s.firstLoad || s.packages) ? firstLoadNote
         : s.state === 'ready' ? `Python ${s.version} is ready${s.loadMs ? ` (loaded in ${(s.loadMs / 1000).toFixed(1)} s)` : ''}.`
           : s.state === 'failed' ? `Python couldn't load: ${s.message}. Reload the page to try again.`
             : statusText(s);
@@ -65,7 +70,7 @@ export function createWorkspace({ packages: tournamentPackages = [] } = {}) {
 
     async prepare() {
       // Start loading in the background: the page renders now and shows progress in #runtime-status.
-      runner.ready(tournamentPackages).catch(() => {});
+      runner.ready(tournamentPackages, datasets).catch(() => {});
     },
 
     yardageHTML(item, note) {
@@ -99,7 +104,7 @@ export function createWorkspace({ packages: tournamentPackages = [] } = {}) {
       const hidden = item.checker.cases.length - visible;
       return `
         <div class="py-idle" data-state="${runner.status.state}">
-          <p class="py-idle-status" id="py-idle-status">${runner.status.state === 'ready' ? `Python ${esc(runner.version)} is ready.` : esc(FIRST_LOAD_NOTE)}</p>
+          <p class="py-idle-status" id="py-idle-status">${runner.status.state === 'ready' ? `Python ${esc(runner.version)} is ready.` : esc(firstLoadNote)}</p>
           <p class="empty">Run shows what your code prints and the value of its last line. Submit checks it against
             ${visible} example${visible === 1 ? '' : 's'} and ${hidden} hidden test${hidden === 1 ? '' : 's'}.</p>
         </div>`;
