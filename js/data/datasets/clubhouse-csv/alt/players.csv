@@ -1,0 +1,25 @@
+player_id,name,country,handicap,is_pro,home_course_id,dues,joined_on
+1,isla MACLEOD,SCO,,False,2,$700.00,2021-03-15
+2,Ava Birdwell," usa",,True,1,$0.00,2019-04-12
+3,Mina Park,KOR,0.8,True,4,$0.00,2016-12-19
+4,Noah Greenfield,USA,0.9,True,,$0,2017-08-25
+5,Tom Akers,aus,1.9,True,8,$0,2017-01-30
+6,"Mateo Fairway ",ESP,7.1,False,6,$800.00,2020-06-03
+7,Freya Holm,SWE,0.8,True,5,$0,2018-06-06
+8,Oscar Lindqvist,"Swe ",,False,5,$900,2020-02-17
+9,"  felix braun",GER,9.5,False,5,"$1,100",2021-06-18
+10,Liam Chipman,USA,11.6,False,1,"$1,050.00",2022-05-30
+11,Sofia Rossi,ITA,13.4,False,6,"$1,200",2021-10-10
+12,Yuki Mori," jpn",0,True,4,$0.00,2019-07-29
+13,Lucas Ferreira,BRA,16.2,False,,"$1,200",2026-01-14
+14,RAFAEL ORTIZ,MEX,,False,6,$650,2023-03-09
+15,Emma Clarke,ENG,6.7,False,2,$750,2021-01-25
+16,Clara Novak,Eng,6.8,False,1,"$1,250",2022-12-01
+17,Hamish Craig,SCO,5.6,False,2,$800.00,2018-04-04
+18,Erik Johansson,SWE,4.9,False,5,$700.00,2025-12-08
+19,Leila Haddad,FRA,13.9,False,,$950,2024-04-18
+20,Sara Lindgren,SWE,4.3,True,5,$ 0,2020-03-27
+21,Kenji Sato,JPN,1.8,True,4,$ 0,2018-09-21
+22,Ben Okafor,ENG,15.2,False,2,"$1,250",2024-02-11
+23,noah greenfield," USA",,True,,,2026-03-08
+24," SOFIA rossi ",ita,,False,6,,2026-03-02
