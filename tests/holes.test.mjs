@@ -1,11 +1,12 @@
 // Every hole of every open tournament, checked against the real engine (sql.js or Pyodide) and answer checker.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { getSql, getPython } from './helpers.mjs';
+import { getSql, getPython, getPandas } from './helpers.mjs';
 import { describeSchema } from '../js/lib/sql-runner.js';
 import { TOURNAMENTS, loadTournament, isOpen } from '../js/tournaments.js';
 import { checkGradedSql } from './sql-checks.mjs';
 import { checkGradedPython } from './python-checks.mjs';
+import { checkGradedFrames } from './pandas-checks.mjs';
 import { DIFFICULTIES, parFor } from '../js/data/par-config.js';
 
 const raw = Object.fromEntries(await Promise.all(TOURNAMENTS.filter(isOpen)
@@ -26,6 +27,19 @@ for (const meta of TOURNAMENTS.filter((t) => isOpen(t) && t.engine === 'python')
     test(`${t.id} hole ${i + 1} (${hole.id})`, async () => {
       sharedFields(assert, hole, t, i);
       checkGradedPython(assert, await getPython(), hole, { key: `${t.id}/${hole.id}`, tournamentId: t.id, html: hole.lesson });
+    });
+  }
+}
+
+for (const meta of TOURNAMENTS.filter((t) => isOpen(t) && t.engine === 'pandas')) {
+  const t = await loadTournament(meta);
+  for (const [i, hole] of t.holes.entries()) {
+    test(`${t.id} hole ${i + 1} (${hole.id})`, async () => {
+      sharedFields(assert, hole, t, i);
+      const { py } = await getPandas();
+      checkGradedFrames(assert, py, hole, {
+        key: `${t.id}/${hole.id}`, dataset: t.frames.dir, frames: t.frames, html: hole.lesson, yardage: hole.yardage,
+      });
     });
   }
 }
