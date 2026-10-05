@@ -13,22 +13,26 @@
 //   code            the editor's current text
 //   lastRun         null (nothing run yet) or { kind: 'practice' | 'error' | 'wrong' | 'correct', message, result }
 //                   where result is engine-specific: SQL { columns, rows }; Python a Run's { stdout, stderr, value,
-//                   error }, a Submit's { tests, summary }, or { timedOut: true }; or null
+//                   error }, a Submit's { tests, summary }, or { timedOut: true }; pandas the same shapes, with
+//                   DataFrame values as tables (js/lib/pandas-harness.js frame_table); or null
 //   progress        { attempts, strokes, par, hintsUsed, solved, best? }
 //   solution        the pro's solution, or null. Only pass it when the learner has it unlocked AND asked for it.
 //   data            engine-specific inputs, e.g. { SQL, seed, referenceSql } for SQL (the reference SQL is used to
 //                   pick relevant tables; its text is never copied unless `solution` is set), and
-//                   { checker, packages } for Python
+//                   { checker, packages } for Python, and { checker, packages, tables, frames } for pandas (frames:
+//                   the data panel's descriptions, or null if they hadn't loaded)
 
 import {
   framingSection, locationSection, problemSection, codeSection, lastRunSection, solutionSection, joinSections,
 } from './sections.js';
 import { buildSqlContext } from './sql.js';
 import { buildPythonContext } from './python.js';
+import { buildPandasContext } from './pandas.js';
 
 export const CONTEXT_BUILDERS = {
   sql: buildSqlContext,
   python: buildPythonContext,
+  pandas: buildPandasContext,
 };
 
 export function buildContext(ctx) {
