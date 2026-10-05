@@ -37,7 +37,7 @@ if (!meta) {
 
 async function start() {
   const t = await loadTournament(meta);
-  const engine = await createWorkspace(t.engine, { seed: t.seed, packages: t.packages ?? [] });
+  const engine = await createWorkspace(t.engine, { seed: t.seed, frames: t.frames, packages: t.packages ?? [] });
   await engine.prepare();
   const highlight = (el, text, theme) => highlightCode(el, text, { language: engine.language, theme });
 

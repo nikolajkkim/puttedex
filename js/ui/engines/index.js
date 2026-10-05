@@ -2,7 +2,8 @@
 // Range problem view are engine-agnostic; they call one of these by the problem's `engine` (its tournament's engine).
 // Each engine module is loaded on demand, so a SQL page never downloads the Python runner and vice versa.
 //
-// createWorkspace({ seed, packages }) returns:
+// createWorkspace({ seed, packages, frames }) returns (seed: the SQL dataset; frames: the pandas dataset's FRAMES
+// manifest, js/data/datasets/<name>.js; packages: the tournament's extra Pyodide packages):
 //   language, fileName, runtimeLabel, placeholder   editor setup (language is a key of LANGUAGES in js/ui/editor.js)
 //   prepare()                     Promise: load the runtime. SQL waits for it; Python resolves at once and keeps
 //                                 loading in the background, showing its progress in #runtime-status.
@@ -17,6 +18,7 @@
 const MODULES = {
   sql: () => import('./sql.js'),
   python: () => import('./python.js'),
+  pandas: () => import('./pandas.js'),
 };
 
 export const hasEngine = (name) => name in MODULES;

@@ -11,9 +11,24 @@
 // value: Python source run first, defining the inputs), plus optional hidden: true and label. Expected values are
 // never written in the data: they come from running the reference solution on the same case.
 // compare: 'unordered' ignores the order of a returned list or tuple.
+//
+// DataFrame checker (pandas problems; the harness half is js/lib/pandas-checker.js):
+//   { type: 'dataframe', function: 'name', frames: ['rounds', 'players'], cases,
+//     returns: 'DataFrame' | 'Series' | 'scalar',
+//     rowOrder: 'require' | 'ignore', sortBy: ['col', …],     ignore: sort both by sortBy (default: every column)
+//     index: 'ignore' | 'require',                           ignore: compare after reset_index(drop=True)
+//     columnOrder: 'require' | 'ignore',
+//     dtypes: 'values' | 'match',                            match: column types must match (int vs float, …)
+//     rtol, atol }                                           float tolerance (defaults 1e-6, 1e-9)
+// The function is called with fresh copies of the dataset's tables named in `frames`, in that order, plus the case's
+// `args` (Python source, optional). Each case is { data: 'main' | 'alt' (the dataset variant, default 'main'),
+// setup?: Python source that edits the tables first (e.g. "rounds = rounds.iloc[:0]"), args?, hidden?, label? }.
+// The dataset itself (`dataset`, the tournament's) is added by the workspace engine, not written in the data file.
+// Changing an input DataFrame fails the case.
 
 import { HARNESS_PY } from './python-harness.js';
 import { PANDAS_HARNESS_PY } from './pandas-harness.js';
+import { PANDAS_CHECKER_PY } from './pandas-checker.js';
 import { PYTHON } from '../data/python-config.js';
 
 /** Wrap a loaded Pyodide. Returns the engine API; every method is synchronous except loadPackages. */
@@ -33,6 +48,7 @@ export function createPythonEngine(pyodide, {
   call('configure', JSON.stringify({ limits, rich_modules: richModules }));
   const loaded = new Set();
   let pandasReady = false;
+  const isFrames = (checker) => checker.type === 'dataframe';
   const requirePandas = () => {
     if (!pandasReady) throw new Error('pandas isn\'t loaded: call loadPackages([\'pandas\']) first.');
   };
@@ -50,6 +66,7 @@ export function createPythonEngine(pyodide, {
       if (loaded.has('pandas') && !pandasReady) {
         // Importing pandas takes a moment, so it happens here (while loading), not in a timed run.
         pyodide.runPython(PANDAS_HARNESS_PY, { globals: ns });
+        pyodide.runPython(PANDAS_CHECKER_PY, { globals: ns });
         call('configure_frames', JSON.stringify(tableRows));
         pandasReady = true;
       }
@@ -92,16 +109,20 @@ export function createPythonEngine(pyodide, {
      * Returns the expected values as display strings. Throws if the solution itself fails a case.
      */
     prepare(key, solution, checker) {
-      return JSON.parse(call('prepare_expected', key, solution, JSON.stringify(checker)));
+      if (isFrames(checker)) requirePandas();
+      return JSON.parse(call(isFrames(checker) ? 'frames_prepare' : 'prepare_expected', key, solution, JSON.stringify(checker)));
     },
 
     /**
      * Check code against every case (prepare(key, …) must have run first).
      * → { cases: [{ visible, label, input, ok, reason, message, expected, got, traceback? }], error, stdout, truncated }
-     * Hidden cases carry no expected or got value.
+     * Hidden cases carry no expected or got value. DataFrame cases also carry `kind` (type, columns, shape, index,
+     * dtype, order, values, mutated, missing) and, for visible ones, `diff` (the first mismatching rows) and
+     * expected/got as display values ({ repr, type, table? }).
      */
     check(key, code, checker) {
-      return JSON.parse(call('check_code', key, code, JSON.stringify(checker)));
+      if (isFrames(checker)) requirePandas();
+      return JSON.parse(call(isFrames(checker) ? 'frames_check' : 'check_code', key, code, JSON.stringify(checker)));
     },
   };
 }

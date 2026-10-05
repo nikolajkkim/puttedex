@@ -57,6 +57,7 @@ async function start() {
   }
   const engine = await createWorkspace(engineName, {
     seed: problem.tournament.seed,
+    frames: problem.tournament.frames,
     packages: problem.tournament.packages ?? [],
   });
   await engine.prepare();
@@ -234,7 +235,7 @@ async function start() {
         // Right after a solve the next play hasn't started: report the solve.
         const solvedPlay = r.playStrokes === 0 && r.lastStrokes !== null;
         return {
-          engine: problem.tournament.engine,
+          engine: engineName,
           location: { kind: 'range', tournament: problem.tournament.title },
           title: problem.title,
           par: problem.par,
