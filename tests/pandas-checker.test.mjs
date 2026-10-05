@@ -108,7 +108,7 @@ test('dtypes: values mode compares numbers numerically; match mode explains int 
   assert.equal(checker(COUNT)(asFloat).s.ok, true);
   const strict = checker(COUNT, { dtypes: 'match' })(asFloat).first;
   assert.equal(strict.kind, 'dtype');
-  assert.match(strict.message, /'n' should hold integers \(int64\), but yours holds decimals \(floats\) \(float64\)\. A missing value \(NaN\)/);
+  assert.match(strict.message, /'n' should hold integers \(int64\), but yours holds decimals \(float64\)\. A missing value \(NaN\)/);
   assert.match(checker(COUNT)(fn(`rounds.groupby('course_id').size().rename('n').astype(str).reset_index()`)).first.message, /'n' holds text/);
 });
 

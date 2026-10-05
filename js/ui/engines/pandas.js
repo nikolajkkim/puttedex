@@ -106,7 +106,7 @@ export function createWorkspace({ packages: tournamentPackages = [], frames } = 
     yardageHTML(item, note) {
       panelItem = item;
       const ready = describedNow(item);
-      const extra = packagesFor(item).filter((p) => !PANDAS_PACKAGES.includes(p));
+      const extra = packagesFor(item).filter((p) => ![...PANDAS_PACKAGES, 'numpy'].includes(p));
       return `
         <section class="yardage" aria-labelledby="yardage-title">
           <h2 id="yardage-title">📒 Yardage book: the DataFrames you get</h2>

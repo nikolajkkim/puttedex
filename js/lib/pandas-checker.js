@@ -35,6 +35,11 @@ class Mismatch(Exception):
         self.kind, self.detail, self.diff = kind, detail, diff
 
 
+def _show(v):
+    """short_repr, with numpy scalars shown as plain Python values (0, not np.int64(0))."""
+    return short_repr(v.item() if isinstance(v, np.generic) else v)
+
+
 def _names(labels):
     return ", ".join("'" + str(x) + "'" if isinstance(x, str) else str(x) for x in labels)
 
@@ -49,9 +54,9 @@ def _family(dtype):
     if pd.api.types.is_integer_dtype(dtype):
         return "integers"
     if pd.api.types.is_float_dtype(dtype):
-        return "decimals (floats)"
+        return "decimals"
     if pd.api.types.is_datetime64_any_dtype(dtype):
-        return "dates (datetime64)"
+        return "dates"
     if isinstance(dtype, pd.CategoricalDtype):
         return "categories"
     if pd.api.types.is_string_dtype(dtype) or dtype == object:
@@ -105,13 +110,14 @@ def _sort_key_frame(df, keys):
             columns=["__k" + str(i) for i in range(len(keys))])
 
 
-def _diff_rows(expected, got, bad_positions, columns, opts):
+def _diff_rows(expected, got, bad_positions, columns, opts, labels=None):
     rows = []
     for pos in bad_positions[:MAX_DIFF_ROWS]:
         e = [expected[c].iloc[pos] for c in columns]
         g = [got[c].iloc[pos] for c in columns]
         rows.append({
             "row": int(pos),
+            "label": None if labels is None else label_text(labels[pos]),
             "expected": [cell(x) for x in e],
             "got": [cell(x) for x in g],
             "bad": [i for i, (a, b) in enumerate(zip(e, g)) if not same_value(a, b, opts)],
@@ -161,6 +167,11 @@ def _index_hint(expected, got):
     """When the expected result has default 0..n-1 index and yours doesn't, or the other way round."""
     if _is_default_index(expected.index) and not _is_default_index(got.index):
         names = [n for n in got.index.names if n is not None]
+        repeated = got.index[got.index.duplicated()]
+        if len(repeated) and not names:
+            return ("Your index has repeated labels (" + _show(repeated[0]) + " appears more than once), which "
+                    "happens when pieces keep their own index. Pass ignore_index=True to pd.concat(), or add "
+                    ".reset_index(drop=True).")
         if names:
             return ("Your index is " + _names(names) + " (left over from a groupby or set_index). The expected "
                     "result has a plain 0, 1, 2, … index: add .reset_index().")
@@ -181,6 +192,10 @@ def _check_columns(expected, got, opts):
         return got
     missing = [c for c in ecols if c not in gcols]
     extra = [c for c in gcols if c not in ecols]
+    if (missing and set(map(str, gcols)) == set(map(str, expected.index)) and
+            set(map(str, got.index)) == set(map(str, ecols))):
+        raise Mismatch("columns", "Your result looks transposed: its columns are the expected rows and its rows "
+                       "the expected columns. Swap index and columns (or add .T).")
     if missing or extra:
         parts = []
         if missing:
@@ -212,15 +227,15 @@ def _check_dtypes(expected, got, opts):
             continue
         if opts["dtypes"] == "match":
             note = ""
-            if ef == "integers" and gf == "decimals (floats)":
+            if ef == "integers" and gf == "decimals":
                 note = " A missing value (NaN) turns integers into floats: fill it, or convert with astype(int)."
-            elif ef == "dates (datetime64)" and gf == "text":
+            elif ef == "dates" and gf == "text":
                 note = " Convert it with pd.to_datetime()."
-            elif gf == "text" and ef in ("integers", "decimals (floats)"):
+            elif gf == "text" and ef in ("integers", "decimals"):
                 note = " Convert the text to numbers with astype() or pd.to_numeric()."
             raise Mismatch("dtype", "Column '" + str(c) + "' should hold " + ef + " (" + str(expected[c].dtype) +
                            "), but yours holds " + gf + " (" + str(got[c].dtype) + ")." + note)
-        if gf == "text" and ef in ("integers", "decimals (floats)", "booleans"):
+        if gf == "text" and ef in ("integers", "decimals", "booleans"):
             raise Mismatch("dtype", "Column '" + str(c) + "' holds text, but it should hold " + ef +
                            ". Convert it with astype() or pd.to_numeric().")
 
@@ -289,30 +304,37 @@ def _compare_frames(expected, got, opts):
                    for a, b in zip(eidx, gidx)):
             same_set = sorted(map(str, eidx)) == sorted(map(str, gidx))
             if same_set and opts["rowOrder"] == "require":
-                raise Mismatch("order", "Your rows are in a different order. Check sort_values(): the column(s), "
-                               "ascending or descending, and the tie-breaker.")
+                raise Mismatch("order", "Your rows are in a different order. Check the sort (the column(s), "
+                               "ascending or descending, and the tie-breaker) and the order you combined pieces in.")
             bad = [i for i, (a, b) in enumerate(zip(eidx, gidx)) if str(a) != str(b)]
             first = bad[0] if bad else 0
             raise Mismatch("index", "The index labels don't match: row " + str(first + 1) + " should be labeled " +
-                           short_repr(eidx[first]) + ", but yours is " + short_repr(gidx[first]) + ".")
+                           _show(eidx[first]) + ", but yours is " + _show(gidx[first]) + ".")
 
+    labels = list(expected.index) if (is_series or opts["index"] == "require") else None
     e_flat, g_flat = expected.reset_index(drop=True), got.reset_index(drop=True)
     flags = [_column_equal(e_flat[c], g_flat[c], opts) for c in columns]
     bad_positions = [i for i in range(len(e_flat)) if not all(f[i] for f in flags)]
     if not bad_positions:
         return
     if opts["rowOrder"] == "require" and _row_order_hint(e_flat, g_flat, opts, columns):
-        raise Mismatch("order", "You have the right rows, but in a different order. Check sort_values(): the "
-                       "column(s), ascending or descending, and the tie-breaker.")
+        raise Mismatch("order", "You have the right rows, but in a different order. Check the sort (the "
+                       "column(s), ascending or descending, and the tie-breaker) and the order you combined pieces in.")
     bad_columns = [label_text(c) for c, f in zip(columns, flags) if not all(f)]
-    detail = (str(len(bad_positions)) + " of " + _rows_text(len(e_flat)) + " differ" + ("s" if len(bad_positions) == 1 else "") +
-              ", in column" + ("s " if len(bad_columns) > 1 else " ") + ", ".join("'" + c + "'" for c in bad_columns) + ".")
+    if is_series:
+        where = ", ".join(_show(labels[i]) for i in bad_positions[:3]) + (", …" if len(bad_positions) > 3 else "")
+        detail = (str(len(bad_positions)) + " of " + str(len(e_flat)) + " values differ" +
+                  ("s" if len(bad_positions) == 1 else "") + " (at " + where + ").")
+    else:
+        detail = (str(len(bad_positions)) + " of " + _rows_text(len(e_flat)) + " differ" +
+                  ("s" if len(bad_positions) == 1 else "") + ", in column" + ("s " if len(bad_columns) > 1 else " ") +
+                  ", ".join("'" + c + "'" for c in bad_columns) + ".")
     rounding = [c for c, f in zip(columns, flags) if not all(f) and pd.api.types.is_float_dtype(e_flat[c].dtype)
                 and pd.api.types.is_numeric_dtype(g_flat[c].dtype)
                 and np.allclose(e_flat[c].astype(float), g_flat[c].astype(float), rtol=0, atol=0.051, equal_nan=True)]
     if rounding:
         detail += " The values are close: check the rounding the task asks for."
-    raise Mismatch("values", detail, _diff_rows(e_flat, g_flat, bad_positions, columns, opts))
+    raise Mismatch("values", detail, _diff_rows(e_flat, g_flat, bad_positions, columns, opts, labels))
 
 
 def compare_results(expected, got, opts):

@@ -67,7 +67,7 @@ function checkerSection(ctx) {
 }
 
 function diffMarkdown(diff) {
-  const rows = diff.rows.flatMap((r) => [[`row ${r.row + 1} expected`, ...r.expected.map(cellText)], ['yours', ...r.got.map(cellText)]]);
+  const rows = diff.rows.flatMap((r) => [[`${r.label ?? `row ${r.row + 1}`} expected`, ...r.expected.map(cellText)], ['yours', ...r.got.map(cellText)]]);
   return markdownTable(['', ...diff.columns], rows, CONTEXT_LIMITS.cellChars);
 }
 
