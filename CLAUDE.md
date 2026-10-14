@@ -36,7 +36,8 @@ at the top of `css/styles.css`. Lesson examples are highlighted on paper, delibe
   the approved alternative if a tournament needs analytics features SQLite lacks.
 - **The editor is CodeMirror 5** (`vendor/codemirror/`, global `CodeMirror`, SQL and Python modes), wrapped by
   `js/ui/editor.js`.
-- **Python runs in-browser via Pyodide** (`vendor/pyodide/`, version in `VERSION`, about 13 MB), inside a module Web
+- **Python runs in-browser via Pyodide** (`vendor/pyodide/`, version in `VERSION`, about 13 MB; see "Pyodide
+  version and packages"), inside a module Web
   Worker. It's loaded lazily: only a page showing a Python problem starts it. Never load it on SQL pages.
 - **pandas runs on the same Pyodide** (engine `'pandas'`): pandas 3.0.2 and numpy 2.4.6, the versions Pyodide 314.0.7
   bundles. Their wheels (plus python-dateutil, pytz, six; about 7.9 MB) are vendored in `vendor/pyodide/` and load
@@ -65,6 +66,12 @@ node --test --test-name-pattern="order-limit" "tests/*.test.mjs"    # tests whos
 npm run test:layout  # headless Chrome at 7 widths: fails if any page scrolls horizontally (CHROME=… to override)
 node scripts/build-frames.mjs   # rebuild the pandas CSV datasets (deterministic; tests fail if they're stale)
 ```
+
+`scripts/check-layout.mjs` only checks the pages in its `PAGES` list. **When a tournament opens, add its tournament
+page and one of its longest holes there** (open `PAGES` in the script to see the current list). For each
+hole page it runs a wide snippet, then submits that hole's own pro line, waiting for asynchronous (Python) results
+before measuring. Its little server must serve `.mjs` as `text/javascript` (Pyodide is a module): with the wrong
+MIME type Pyodide never loads and every wait runs to its 30 s timeout. GitHub Pages already serves the right type.
 
 ES modules and WASM don't load from `file://`, so always use a local server. There are no npm dependencies; `package.json`
 exists only for the scripts. The tests load the vendored Pyodide in Node directly (about a second; loading pandas adds about 6
@@ -213,6 +220,9 @@ A caddie tip costs one stroke, so taking it on a Par 1 always ends over par.
    - Nothing is ever locked behind another tournament: a tournament is playable as soon as it has holes.
      `prerequisite` only shows "Recommended after X" on the schedule card and tournament page, with a check mark once
      X is complete.
+   - **Choosing the prerequisite:** the most recent earlier tournament that is playable now (has holes), never one
+     still marked "coming soon". That's why Python Fundamentals points at Window Functions. Say which one you chose
+     in your report.
 2. To open it, create `js/data/holes/<name>.js` (see below) and set `holeSet: '<name>'`.
 3. A new SQL dataset goes in `js/data/datasets/<name>.js` and exports `SEED` (schema + inserts). Keep it deterministic.
 4. Run `npm test`. `tests/tournaments.test.mjs` checks the entry's fields and that it loads.
@@ -293,6 +303,21 @@ Tests (`tests/python-checks.mjs`, for holes and range problems alike) require:
 
 Lesson `<pre>` examples are highlighted in the hole's language. Write Python examples on different data than the
 task so they teach without giving the answer away.
+
+**Content conventions for Python tournaments:**
+- Golf-themed data in every hole (scores, courses, players, handicaps), reusing the clubhouse's names and courses.
+- Before the pandas tournament, yardage notes on group-by, counting, and comprehension holes say how the same idea
+  looks in pandas (e.g. `df.groupby('course').score.agg([...])`), without using pandas.
+- Holes 15–18 are real data science internship interview questions (cleaning messy input, group-by, a hash-map
+  classic, a parse-clean-group-rank capstone).
+
+**What the Python checker does not do** (say so in a task if it matters):
+- It doesn't grade speed: an O(n²) answer that returns the right values passes. The timeout is 5 s for all cases
+  together, so keep large hidden inputs small enough that a slow but correct answer still finishes.
+- Values are displayed with `reprlib`, so dicts show their keys sorted, not in insertion order. A declared
+  `expected` must use that form.
+- Run doesn't execute the examples; only Submit does. (pandas Run is different: see "pandas holes".)
+- Imported modules stay cached between runs (only the namespace, builtins, streams, and recursion limit reset).
 
 ### pandas holes
 
@@ -484,6 +509,47 @@ difficulty split, for example) overrides the defaults here.
    - Report every problem you had to change during verification, and why.
 10. **Finish.** Make a separate commit per tournament, push to main, and wait for CI to pass. Then give the user a
     list of the new problems with each one's title, difficulty and par, and tags, and flag anything you weren't sure about.
+
+## Building a tournament
+
+**Standing procedure.** When the user says something like "build Tournament N" or "add all 18 holes to
+[tournament]", follow these steps without asking them to repeat the details. Anything they specify (hole order,
+concepts, par split, wording) overrides the defaults here.
+
+1. **Read first.** Read every hole of the earlier tournaments it builds on (`js/data/holes/*.js`), so the new holes
+   build on them instead of repeating them, and so lessons can point back to them.
+2. **Check the runtime** before writing content: does the engine support every feature the holes need (e.g. sql.js's
+   SQLite version for window functions, Pyodide's packages)? If not, say what's missing first.
+3. **Data.** If the dataset needs more rows, extend it deterministically, then rerun every existing hole and range
+   problem and re-read tasks that say "every" or "each" (see "The clubhouse dataset"). Raise thresholds that stop
+   discriminating, and report every earlier hole or range problem you changed.
+4. **Schedule entry.** Fill in the metadata (skills, description, `prerequisite` chosen as in "How to add a
+   tournament"), with `holeSet: null` until the holes exist.
+5. **Holes.** Usually 18, with Par 1 for roughly holes 1–6 and Par 2 for the rest, and interview-style questions at
+   the end. Every hole has task text that spells out exactly what's graded, a blank editor, a caddie hint, a yardage
+   note, an interview angle, a multi-line pro solution, and its engine's checker (SQL: `alternatives`/`mistakes`;
+   Python: a `checker` with visible and hidden cases; pandas: the DataFrame checker), following that engine's rules
+   under "How to add a hole".
+6. **Verify.** Run every solution through its checker; confirm realistic wrong answers fail (and for Python, that
+   at least one passes the examples but fails a hidden case); print each hole's task next to its expected result
+   and read them side by side; play the holes in Chrome at 1440, 1280, and 390px; run `npm test` and
+   `npm run test:layout` (after adding the new pages to it). Report any hole you changed during verification and why.
+7. **Commit in stages** the user names (typically: infrastructure, schedule/metadata, holes), each passing
+   `npm test`, push to `main`, and wait for CI to pass.
+8. **Update CLAUDE.md** if the dataset, structure, or conventions changed.
+9. **Report** the hole titles with par, what changed in earlier content, and anything you weren't sure about.
+
+## Pyodide version and packages
+
+`vendor/pyodide/` holds Pyodide **314.0.7** (Python 3.14.2), chosen as the latest release whose package lock also
+includes the packages later tournaments need (pandas 3.0.2, NumPy 2.4.6). Only the core files are vendored:
+`pyodide.mjs`, `pyodide.asm.mjs`, `pyodide.asm.wasm`, `python_stdlib.zip`, `pyodide-lock.json`, `package.json`,
+`LICENSE`, and `VERSION`. To upgrade, replace all of them together (the JS and WASM must match) and run `npm test`.
+
+Packages (a tournament's or problem's `packages`) load from the same folder, so their wheels and dependencies are
+vendored there too (pandas Wrangling's are; see "Hard conventions" and `tests/vendor.test.mjs`). Pyodide's
+`loadPyodide({ packageBaseUrl })` could load them from a CDN instead; that was considered and not used, because it
+breaks the "vendor everything" convention and offline use.
 
 ## Copy context
 
