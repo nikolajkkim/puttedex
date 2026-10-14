@@ -542,9 +542,10 @@ concepts, par split, wording) overrides the defaults here.
 ## Pyodide version and packages
 
 `vendor/pyodide/` holds Pyodide **314.0.7** (Python 3.14.2), chosen as the latest release whose package lock also
-includes the packages later tournaments need (pandas 3.0.2, NumPy 2.4.6). Only the core files are vendored:
-`pyodide.mjs`, `pyodide.asm.mjs`, `pyodide.asm.wasm`, `python_stdlib.zip`, `pyodide-lock.json`, `package.json`,
-`LICENSE`, and `VERSION`. To upgrade, replace all of them together (the JS and WASM must match) and run `npm test`.
+includes the packages later tournaments need (pandas 3.0.2, NumPy 2.4.6). The core files are `pyodide.mjs`,
+`pyodide.asm.mjs`, `pyodide.asm.wasm`, `python_stdlib.zip`, `pyodide-lock.json`, `package.json`, `LICENSE`, and
+`VERSION`; the package wheels sit beside them. To upgrade, replace the core files and every wheel together, from the
+same release (the JS, WASM, and wheels must match), and run `npm test`.
 
 Packages (a tournament's or problem's `packages`) load from the same folder, so their wheels and dependencies are
 vendored there too (pandas Wrangling's are; see "Hard conventions" and `tests/vendor.test.mjs`). Pyodide's
